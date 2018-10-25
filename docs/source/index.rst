@@ -10,6 +10,7 @@ Welcome to H2 Model Reduction's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   system
    lagrange
    utils 
 

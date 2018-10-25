@@ -188,6 +188,13 @@ class TransferSystem(LTISystem):
         return ret
 
 class StateSpaceSystem(LTISystem):
+	""" Defines a system in terms of its state-space representation
+
+
+
+
+	"""
+
     def __init__(self, A, B, C, E = None, invert_E = False):
         if issparse(A):
             # Convert to CSR form for speed in sparse operations
