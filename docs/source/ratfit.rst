@@ -20,7 +20,7 @@ There are a variety of parameterizations of rational approximation
 to use with an optimization approach.
 Here we describe two: a pole-residue approach and a polynomial based approach. 
 
-.. autoclass:: mor.PoleResidueRationalFit
+.. autoclass:: mor.PartialFractionRationalFit
 
 .. autoclass:: mor.PolynomialBasisRationalFit
 

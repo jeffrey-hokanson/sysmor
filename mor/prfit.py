@@ -4,13 +4,13 @@ from scipy.linalg import solve_triangular, lstsq, svd
 from lagrange import LagrangePolynomial, BarycentricPolynomial
 from opt.gn import gn, BadStep
 from marriage import marriage_sort
-from ratfit import RationalFit
+from ratfit import OptimizationRationalFit
 from aaa import AAARationalFit
 from test import check_jacobian
 from itertools import product
 
 
-class PoleResidueRationalFit(RationalFit):
+class PartialFractionRationalFit(OptimizationRationalFit):
 	""" Fit rational approximation using a partial fraction expansion.
 
 	This class fits a rational approximation with :math:`m\ge n-1`
@@ -67,20 +67,6 @@ class PoleResidueRationalFit(RationalFit):
 		elif init == 'aaa':	self._init = self._init_aaa
 
 		self.kwargs = kwargs
-
-	def _init_aaa(self):
-		""" Use the AAA Algorithm to initialize the poles
-		"""
-		try:
-			verbose = self.kwargs['verbose']
-		except KeyError:
-			verbose = False
-			pass
-
-		aaa = AAARationalFit(self.n, verbose = verbose)
-		aaa.fit(self.z, self.h)
-		lam = aaa.poles()		
-		return lam
 	
 	def vandmat(self, lam, z = None):
 		""" Builds the Vandermonde-like matrix for the pole-residue parameterization
@@ -499,98 +485,6 @@ class PoleResidueRationalFit(RationalFit):
 		V = self.vandmat(self.lam, z)
 		return np.dot(V, self.rho_c)
 	
-	def _init_recursive(self):
-		#print "Original degree (%d, %d)" % (self.m, self.n)
-		m_orig = self.m
-		n_orig = self.n
-		if self.real: 
-			step = 2
-			if n_orig % 2 == 0: 
-				# Even number of poles
-				n = 2
-			else:	
-				# Odd number of poles
-				n = 1
-		else:
-			n = 1 
-			step = 1
-
-		m = (m_orig - n_orig) + n 
-		#m = n - 1
-		
-		# Constants we will need later
-		max_real = np.max(self.z.real)
-		min_real = np.min(self.z.real)
-		max_imag = np.max(self.z.imag)
-		min_imag = np.min(self.z.imag)
-		
-		# For the denominator we will use a barycentric polynomial
-		# with nodes at the corners of the real or imaginary range 
-		# (whichever is largest)
-		if (max_real - min_real) > (max_imag - min_imag):	
-			nodes = [min_real, max_real]
-			nodes += [ (max_real + min_real)/2]
-			nodes = np.array(nodes) + 1j*(min_imag + max_imag)/2.
-		else:
-			nodes = [1j*min_imag, 1j*max_imag]
-			nodes += [ 1j*(min_imag + max_imag)/2. ]
-			nodes = np.array(nodes) + (min_real + max_real)/2.
-	
-		lam = None
-		res = np.copy(self.h)
-		while n <= n_orig:
-			num_degree = min(step, n)+1
-			q = LagrangePolynomial(nodes[:num_degree])
-			Psi = q.vandmat(self.z)
-
-			p = LagrangePolynomial(nodes[:num_degree])
-			Phi = p.vandmat(self.z)
-
-			# Setup the "linearized" solution
-			A = np.hstack([Phi, -np.dot(np.diag(res), Psi) ])
-			A = self.W(A)
-		
-			#print "cond A %5.5e, cond Phi %5.5e, cond Psi %5.5e" % ( 
-			#	np.linalg.cond(A), np.linalg.cond(Phi), np.linalg.cond(Psi))
-			U, s, VH = np.linalg.svd(A)
-			ab = VH.conjugate().T[:,-1]
-			
-			# Compute the new roots to add
-			b = ab[-num_degree:]
-			q = LagrangePolynomial(nodes[:num_degree], b)
-			lam_new = q.roots()
-			#lam_new = self.legendre_roots(b)
-			#print lam_new
-			# Force the new roots to come in conjugate pairs
-			if self.real:
-				I = marriage_sort(lam_new, lam_new.conjugate())
-				lam_new = 0.5*(lam_new + lam_new[I].conjugate()) 
-
-			# Either use these roots as the initial values 
-			if lam is None: lam = lam_new
-			# Or append them to the current list of roots
-			else: lam = np.hstack([self.lam, lam_new])
-			
-			#I = np.argsort(lam.imag)
-			#print "poles", lam[I]
-			#print "lam new", lam_new
-			
-			# Fit to the current size
-			self.m = m
-			self.n = n
-			if self.n == n_orig:
-				#print "stopping with (%d,%d)" % (self.m, self.n)
-				break
-
-			self._fit(lam)
-			res = self.residual(self.lam)
-			#print "fitting (%d, %d)" % (m,n), "residual", np.linalg.norm(res)
-			m += step
-			n += step
-
-		self.m = m_orig
-		self.n = n_orig
-		return lam				
 
 	def plain_residual(self, lam, return_real = False):
 		return self.plain_residual_jacobian(lam, return_real = return_real, jacobian = False)
