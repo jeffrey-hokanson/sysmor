@@ -13,7 +13,7 @@ Welcome to H2 Model Reduction's documentation!
    system
    lagrange
    utils 
-
+   ratfit
 
 Indices and tables
 ==================
