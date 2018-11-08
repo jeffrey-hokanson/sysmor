@@ -163,40 +163,6 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		return r.view(float), -JRI
 
 
-	def _Omega(self, b):
-		zt = self._transform(self.z)
-		Psi = np.vstack([zt, np.ones(zt.shape)]).T	
-		zt2 = zt**2
-
-		return Omega
-
-
-	def Theta(self, b):
-		zt = self._transform(self.z)
-		Psi = np.vstack([zt, np.ones(zt.shape)]).T	
-		zt2 = zt**2
-		if self.n % 2 == 0:
-			Theta = np.hstack([ (Psi.T/(zt2 + np.dot(Psi, b[2*k:2*k+2] ))).T for k in range(self.n//2)])
-		else:	
-			Theta = 1./(zt + b[0]).reshape(-1,1)
-			if self.n > 1:
-				Theta1 = np.hstack([ (Psi.T/(zt2 + np.dot(Psi, b[2*k+1:2*k+3] ))).T for k in range(self.n//2)])
-				Theta = np.hstack([Theta, Theta1])
-	
-		if self.m - self.n >= 0:
-			Theta = np.hstack([Theta, self._legendre_vandmat(self.m - self.n, self.z)])
- 
-		WTheta = self.W(Theta)
-		Wf = self.W(self.f)
-
-		# Now make into real/imaginary form
-		WThetaRI = np.zeros((WTheta.shape[0]*2, WTheta.shape[1]), dtype = np.float)
-		WThetaRI[0::2,:] = WTheta.real
-		WThetaRI[1::2,:] = WTheta.imag
-
-		return WThetaRI
-
-
 	def residual_jacobian_real(self, b, jacobian = True, return_real = True):
 		""" Construct the residual and Jacobian for the pole-residue parameterization with real pairs
 		"""
