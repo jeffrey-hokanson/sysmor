@@ -8,7 +8,6 @@ from marriage import marriage_sort
 from ratfit import RationalFit
 from optfit import OptimizationRationalFit
 from aaa import AAARationalFit
-from test import check_jacobian
 from itertools import product
 
 
