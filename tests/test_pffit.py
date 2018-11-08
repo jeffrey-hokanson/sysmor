@@ -59,8 +59,8 @@ def test_pf_jacobian_tan():
 	W2a = np.random.randn(N,N) + 1j * np.random.randn(N,N)
 	W2 = lambda x: np.dot(W2a, x)
 	
-	# Check for different orders
-	for (m,n) in [(5,6), (7,6)]:
+	# Check for different orders, including n: even, odd and additional polynomial terms
+	for (m,n) in [(5,6), (7,6), (4,5), (6,5)]:
 		# unweighted / weighted check
 		for W in [W1, W2]:
 			print("Checking varpro complex jacobian")
