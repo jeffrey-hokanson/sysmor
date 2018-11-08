@@ -115,6 +115,13 @@ class RationalFit:
 		lam0 = self._init(W)
 		self._fit(lam0)
 
+	def pole_residue(self):
+		"""Return the poles and residues of the rational function
+
+		"""
+		return self._pole_residue()	
+	
+
 	def to_system(self):
 		""" Convert the rational approximation to a system 
 		"""

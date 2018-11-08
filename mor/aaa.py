@@ -29,6 +29,14 @@ class AAARationalFit(RationalFit):
 		If true, print debugging information
 
 
+	Attributes
+	----------
+	Ihat: array-like, bool
+		Binary array the size of :code:`z`.  If :code:`Ihat[j] == True`, then 
+		:code:`z[j]` is a location where the rational function interpolates
+		the data.
+
+
 	References
 	----------
 	.. [NST18] The AAA Algorithm for Rational Approximation. 
@@ -108,7 +116,7 @@ class AAARationalFit(RationalFit):
 		return reval
 
 
-	def pole_residue(self):
+	def _pole_residue(self):
 		zhat = self.z[self.Ihat]
 		w = np.ones(zhat.shape)
 		q = BarycentricPolynomial(zhat, self.b, w)
@@ -122,13 +130,6 @@ class AAARationalFit(RationalFit):
 
 		return lam, rho
 
-	def poles(self):
-		lam, rho = self.pole_residue()
-		return lam
-
-	def residues(self):
-		lam, rho = self.pole_residue()
-		return rho
 
 	def cleanup(self):
 		""" Remove numerical Froissart doublets
@@ -149,23 +150,3 @@ class AAARationalFit(RationalFit):
 		U, s, VH = scipy.linalg.svd(L, full_matrices = False, compute_uv = True, overwrite_a = True)
 		self.b = VH.conjugate().T[:,-1] 
 		
-
-if __name__ == '__main__':
-	import matplotlib.pyplot as plt
-
-	z = np.exp(2j*np.pi*np.linspace(0,1, 1000, endpoint = False))
-	h = np.log(2+z**4)/(1-16*z**4)
-
-	aaa = AAARationalFit(100)
-	aaa.fit(z, h)
-	aaa.cleanup()
-
-	lam, rho = aaa.pole_residue()	
-	print len(lam)
-	fig, ax = plt.subplots()
-	I = np.abs(rho) >= 1e-13
-	ax.plot(lam[I].real, lam[I].imag, 'k.')
-	I = np.abs(rho) < 1e-13
-	ax.plot(lam[I].real, lam[I].imag, 'r.')
-	plt.show()
-	
