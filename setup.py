@@ -10,6 +10,6 @@ setup(name='mor',
 	install_requires = [
 		'numpy', 
 		'scipy', 
-		'matplotlib'
+		'matplotlib<3.0'
 		],
 	)
