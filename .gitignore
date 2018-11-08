@@ -4,3 +4,4 @@ docs/build
 .pytest_cache
 .eggs
 .coverage
+mor.egg-info

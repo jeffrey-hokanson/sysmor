@@ -7,7 +7,7 @@ from system import *
 # Rational fitting methods
 from ratfit import RationalFit
 from pbfit import PolynomialBasisRationalFit
-from prfit import PartialFractionRationalFit
+from pffit import PartialFractionRationalFit
 from vecfit import VFRationalFit
 from skfit import SKRationalFit
 from aaa import AAARationalFit

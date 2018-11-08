@@ -2,7 +2,7 @@ import numpy as np
 from scipy.linalg import lstsq
 from ratfit import RationalFit
 from scipy.linalg import solve_triangular, lstsq, svd
-from prfit import PartialFractionRationalFit as PoleResidueRationalFit
+from pffit import PartialFractionRationalFit as PoleResidueRationalFit
 
 class VFRationalFit(PoleResidueRationalFit):
 	""" Use vector fitting to build a rational approximation

@@ -58,8 +58,8 @@ class AAARationalFit(RationalFit):
 		if self.m is not None and self.tol is None:
 			self.tol = 0.
 
-		self.real = False
-		self.W = None
+		self.field = 'complex'
+		self.W = lambda x: x
 	
 	def _fit(self, lam0 = None):
 

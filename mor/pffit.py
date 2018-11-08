@@ -1,10 +1,12 @@
 # (c) Jeffrey M. Hokanson May 2018
 import numpy as np
 from scipy.linalg import solve_triangular, lstsq, svd
+from scipy.optimize import least_squares
 from lagrange import LagrangePolynomial, BarycentricPolynomial
 from opt.gn import gn, BadStep
 from marriage import marriage_sort
-from ratfit import OptimizationRationalFit
+from ratfit import RationalFit
+from optfit import OptimizationRationalFit
 from aaa import AAARationalFit
 from test import check_jacobian
 from itertools import product
@@ -56,17 +58,25 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		Initialization technique if initial poles are not provided to the fit function
 	kwargs: dict, optional
 		Additional arguments to pass to the optimizer
+
+	Attributes
+	----------
+	lam: array
+		Poles of rational function
+	rho_c: array
+		Residues and coefficients of polynomial terms
+
 	"""
 	def __init__(self, m, n, field = 'complex', stable = False, init = 'aaa', **kwargs):
 
-		RationalFit.__init__(self, m, n, field = field, stable = stable)
-		assert self.m + 1 >= self.n, "Pole-residue parameterization requires m + 1 >= n" 
+		assert m + 1 >= n, "Pole-residue parameterization requires m + 1 >= n" 
+		OptimizationRationalFit.__init__(self, m, n, field = field, stable = stable, init = init, **kwargs)
+	
 
-		assert init in ['recursive', 'aaa'], "Did not recognize initialization strategy"
-		if init == 'recursive': self._init = self._init_recursive
-		elif init == 'aaa':	self._init = self._init_aaa
+	def __call__(self, z):
+		V = self.vandmat(self.lam, z)
+		return np.dot(V, self.rho_c)
 
-		self.kwargs = kwargs
 	
 	def vandmat(self, lam, z = None):
 		""" Builds the Vandermonde-like matrix for the pole-residue parameterization
@@ -77,10 +87,8 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		# Compute terms like  (z - lam)^{-1}
 		V = 1./(np.tile(z.reshape(-1,1), (1,self.n)) -  np.tile(lam.reshape(1,-1), (len(z), 1)))
 
-		# Add the additional polynomial terms
-		# Here we're using monomials for simplicity
-		#print "m: %d, n: %d, diff: %d, cols %d" % (self.m, self.n, self.m - self.n + 1, V[:,self.n:].shape[1]) 
 		# Add a polynomial of degree self.m - self.n, which has self.m - self.n + 1 columns
+		# Here for numerical stability we use a Legendre polynomial basis scaled for the data
 		if self.m - self.n >= 0:
 			V = np.hstack([V, self.legendre_vandmat(self.m - self.n , z)])
 
@@ -89,9 +97,8 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 	def vandmat_der(self, lam):
 		""" Builds the column-wise derivative of the Vandermonde-like matrix for the pole-residue parameterization
 		""" 
-		V = (np.tile(self.z.reshape(-1,1), (1,self.n)) -  np.tile(lam.reshape(1,-1), (len(self.z), 1)))**(-2)
-		# they are zero
-		return V
+		Vp = (np.tile(self.z.reshape(-1,1), (1,self.n)) -  np.tile(lam.reshape(1,-1), (len(self.z), 1)))**(-2)
+		return Vp
 	
 	def residual(self, lam, return_real = False):
 		return self.residual_jacobian(lam, return_real = return_real, jacobian = False)
@@ -103,13 +110,14 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 	def residual_jacobian(self, lam, return_real = True, jacobian = True):
 		
 		V = self.vandmat(lam)
+
 		# Apply mass matrix to V
 		WV = self.W(V)
-		Wh = self.W(self.h)
+		Wf = self.W(self.f)
 		
 		# Compute the short-form QR factorization of WV to solve system
 		WV_Q, WV_R = np.linalg.qr(WV, mode='reduced')
-		b = np.dot(WV_Q.conjugate().T, Wh)
+		b = np.dot(WV_Q.conjugate().T, Wf)
 		try:
 			a = solve_triangular(WV_R, b)
 		except Exception as e:
@@ -117,8 +125,8 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 			raise e
 
 		# residual
-		PWh = np.dot(WV_Q, b)
-		r = Wh - PWh
+		PWf = np.dot(WV_Q, b)
+		r = Wf - PWf
 		
 		if jacobian is False:
 			if return_real: return r.view(float)
@@ -154,78 +162,6 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 			raise BadStep
 		
 		return r.view(float), -JRI
-	
-	def polynomial_trajectory(self, lam, p, t):
-		""" A trajectory following the polynomial parameterization of the roots
-		
-		Parameters
-		---------- 
-		"""
-		if not np.all(np.isfinite(p)):
-			raise BadStep
-
-		# zhat0 needs to be placed to ensure stability
-		# Here we do so by placing this point so that the D-matrix is small
-		# and hence the corresponding coefficients b are small-ish
-		zhat0_candidates = np.linspace(0.5*np.min(lam.real), 1.5*np.max(lam.real), 100)
-		zhat0_score = np.array([ np.max(np.abs( 1./(lam - zhat0))) for zhat0 in zhat0_candidates])
-		zhat0 = zhat0_candidates[np.argmin(zhat0_score)]
-
-		zhat = np.hstack([zhat0, lam])
-		dinv = -1./(zhat[1:] - zhat[0])
-	
-		# If conjugate pairs, wort them
-		if self.real:
-			I = marriage_sort(lam, lam.conjugate())
-			p = 0.5*(p + p[I].conjugate()) 
-
-		b = np.zeros(p.shape[0]+1, dtype = np.complex)
-		b[0] = 1.
-		b[1:] = t*dinv*p
-
-		# This is the polynomial whose roots determine the next step
-		q = BarycentricPolynomial(zhat, b, np.ones(b.shape))
-		try:
-			# Sometimes we fail the step for reasons unknown
-			lam_new = q.roots(deflation = False)
-		except ValueError:
-			print "lam0", lam0
-			print "lam", lam
-			print "b", b
-			print "p", p
-			raise BadStep
-
-		if not np.all(np.isfinite(lam_new)):
-			print "Bad steps: roots not all finite"
-			print lam_new
-			raise BadStep
-		
-		# Ensure roots have been accurately computed
-		value_at_roots = np.linalg.norm(q(lam_new), np.inf)
-		if (value_at_roots > 1e-2) or not np.isfinite(value_at_roots):
-			print "Bad step: roots inaccurately computed"
-			print value_at_roots
-			print "zhat", zhat
-			print "b   ", b
-			raise BadStep
-
-		# Ensure roots come in conjugate pairs
-		if self.real:
-			I = marriage_sort(lam_new, lam_new.conjugate())
-			lam_new = (lam_new + lam_new[I].conjugate())/2.
-			
-
-		# Sort so they come out in the same order as before
-		#I = marriage_sort(lam, lam_new)
-		return lam_new
-		
-	def pole_trajectory(self, lam, p, t):
-		if self.real:	
-			I = marriage_sort(lam, lam.conjugate())
-			p = 0.5*(p+p[I].conjugate())
-		
-		lam_new = lam + t*p
-		return lam_new
 
 
 	def _Omega(self, b):
@@ -281,23 +217,23 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 			Omega = np.hstack([Omega, self.legendre_vandmat(self.m - self.n, self.z)])
  
 		WOmega = self.W(Omega)
-		Wh = self.W(self.h)
+		Wf = self.W(self.f)
 
 		# Now make into real/imaginary form
 		WOmegaRI = np.zeros((WOmega.shape[0]*2, WOmega.shape[1]), dtype = np.float)
 		WOmegaRI[0::2,:] = WOmega.real
 		WOmegaRI[1::2,:] = WOmega.imag
-		WhRI = Wh.view(float)
+		WfRI = Wf.view(float)
 
 		# Compute the short-form QR factorization of WV to solve system
 		WOmegaRI_Q, WOmegaRI_R = np.linalg.qr(WOmegaRI, mode='reduced')
-		c = np.dot(WOmegaRI_Q.T, WhRI)
+		c = np.dot(WOmegaRI_Q.T, WfRI)
 		
 		# First we compute the coefficients for the numerator polynomial
 		a = solve_triangular(WOmegaRI_R, c) 
 		
 		# Compute the residual		
-		rRI = WhRI - np.dot(WOmegaRI, a) 
+		rRI = WfRI - np.dot(WOmegaRI, a) 
 		
 		# Stop if we don't need to compute the jacobian
 		if jacobian is False:
@@ -353,32 +289,34 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 
 	def _fit(self, lam0):
 
-		if lam0 is None:
-			lam0 = self._init() 
-
-		if self.real:
+		if self.field == 'real':
 			return self._fit_real(lam0)
-		return self._fit_complex(lam0)
+		else:
+			return self._fit_complex(lam0)
 
 	def _fit_complex(self, lam0):
 		res = lambda lam: self.residual(lam.view(complex), return_real=True)
 		jac = lambda lam: self.jacobian(lam.view(complex))
 
-		if self.trajectory == 'polynomial':
-			trajectory = lambda x0, p, t: self.polynomial_trajectory(x0.view(complex), p.view(complex), t).view(float)
-		elif self.trajectory == 'pole':
-			trajectory = lambda x0, p, t: self.pole_trajectory(x0.view(complex), p.view(complex), t).view(float)
+		#if self.trajectory == 'polynomial':
+		#	trajectory = lambda x0, p, t: self.polynomial_trajectory(x0.view(complex), p.view(complex), t).view(float)
+		#elif self.trajectory == 'pole':
+		#	trajectory = lambda x0, p, t: self.pole_trajectory(x0.view(complex), p.view(complex), t).view(float)
 
-		lamRI, info = gn(f=res, F=jac, x0=lam0.view(float), trajectory = trajectory, **self.kwargs)
-		lam = lamRI.view(complex)
+		#lamRI, info = gn(f=res, F=jac, x0=lam0.view(float), trajectory = trajectory, **self.kwargs)
+		#lam = lamRI.view(complex)
+		#self.lam = lam
+
+		res = least_squares(res, lam0.view(float), jac = jac, **self.kwargs)
+		lam = res.x.view(complex)
 		self.lam = lam
 
 		# Compute residues and additional polynomial terms
 		V = self.vandmat(lam)
 		WV = self.W(V)
-		Wh = self.W(self.h)
+		Wf = self.W(self.f)
 
-		rho_c = lstsq(WV, Wh, lapack_driver = 'gelss')[0] 
+		rho_c = lstsq(WV, Wf, lapack_driver = 'gelss')[0] 
 		self.rho_c = rho_c
 		rho = rho_c[:self.n]
 		c = rho_c[self.n:]
@@ -480,12 +418,6 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		self.c = a[self.n:]
 		self.rho_c = np.hstack([self.rho, self.c])
 
-
-	def __call__(self, z):
-		V = self.vandmat(self.lam, z)
-		return np.dot(V, self.rho_c)
-	
-
 	def plain_residual(self, lam, return_real = False):
 		return self.plain_residual_jacobian(lam, return_real = return_real, jacobian = False)
 
@@ -501,10 +433,10 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		V = self.vandmat(lam)
 		# Apply mass matrix to V
 		WV = self.W(V)
-		Wh = self.W(self.h)
+		Wf = self.W(self.f)
 
 		# Compute residual
-		r = Wh - np.dot(V, rho_c)
+		r = Wf - np.dot(V, rho_c)
 		if not jacobian:
 			if return_real: return r.view(float)
 			else: return r
@@ -526,121 +458,5 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		
 		return r.view(float), -JRI	
 		
-def test_jacobian():
-	z = np.exp(2j*np.pi*np.linspace(0,1, 1000, endpoint = False))
-	h = np.tan(64*z)
-	
-	m = 9
-	n = 10
-	pr = PoleResidueRationalFit(m,n, real = False)
-	pr.fit(z, h)
-
-	residual = lambda x: pr.residual(x.view(complex), return_real = True)
-	jacobian = lambda x: pr.jacobian(x.view(complex))
-		
-	lam = np.random.randn(n) + 1j*np.random.randn(n)
-
-	err = check_jacobian(lam.view(float), residual, jacobian)
-	print "Error in Jacobian %5.5e" % (err,)
-	assert err < 1e-7
-
-def test_jacobian_plain():
-	z = np.exp(2j*np.pi*np.linspace(0,1, 1000, endpoint = False))
-	h = np.tan(64*z)
-	
-	m = 9
-	n = 10
-	pr = PoleResidueRationalFit(m,n, real = False)
-	pr.fit(z, h)
-
-	residual = lambda x: pr.plain_residual(x.view(complex), return_real = True)
-	jacobian = lambda x: pr.plain_jacobian(x.view(complex))
-		
-	lam = np.random.randn(n) + 1j*np.random.randn(n)
-	rho_c = np.random.randn(n+(m-n+1)) + 1j*np.random.randn(n+(m-n+1))
-	x = np.hstack([lam, rho_c])
-
-	err = check_jacobian(x.view(float), residual, jacobian)
-	print "Error in Jacobian %5.5e" % (err,)
-	assert err < 1e-7
-
-
-def test_jacobian_real():
-	z = np.exp(2j*np.pi*np.linspace(0,1, 1000, endpoint = False))
-	h = np.tan(64*z)
-	
-	m = 9
-	n = 10
-	pr = PoleResidueRationalFit(m,n, real = True)
-	pr.fit(z, h)
-
-	residual = lambda x: pr.residual_real(x, return_real = True)
-	jacobian = lambda x: pr.jacobian_real(x)
-	
-	b = np.random.randn(n)
-	err = check_jacobian(b, residual, jacobian)
-	print "ERROR!!!", err
-	assert err < 1e-7
-
-
-if __name__ == '__main__':
-	from test_cases import *	
-	import scipy.io
-
-	#test_jacobian()
-	#test_jacobian_plain()
-
-	if True:
-		dat = scipy.io.loadmat('data/fig_local_minima_cdplayer.mat')
-		z = dat['z'].flatten()
-		h = dat['h'].flatten()
-
-		m = 23
-		n = 24
-	
-		print "Real = False"
-		pr = PoleResidueRationalFit(m, n, real = False, verbose = True)
-		pr.fit(z, h)
-		print "lam", pr.lam
-		print "rho", pr.rho
-		print "fit norm", np.linalg.norm(pr(z) - h)
-		
-		print "Real = True"
-		pr = PoleResidueRationalFit(m, n, real = True, verbose = False)
-		pr.fit(z, h)
-		print "lam", pr.lam
-		print "rho", pr.rho
-		print "fit norm", np.linalg.norm(pr(z) - h)
-
-	if False:
-		pr = PoleResidueRationalFit(2,2, real = True, verbose = True, tol_normdx = 1e-14, tol = 1e-7)
-		pr.z = z
-		pr.h = h
-		lam = np.array([1e6, 1])
-		print np.linalg.svd(pr.jacobian(lam))[1]
-	
-	if False:
-		dat = scipy.io.loadmat('data/fig_aaa_tan256.mat')
-		z = dat['z'].flatten()
-		h = dat['h'].flatten()
-		pr = PoleResidueRationalFit(4, 4, real = False, verbose = True)
-		pr.fit(z, h)
-		print pr.lam
-		print pr.rho
-		print np.linalg.norm(pr.residual(pr.lam))
-
-	if False:
-		dat = scipy.io.loadmat('data/fig_local_minima_cdplayer.mat')
-		z = dat['z'].flatten()
-		h = dat['h'].flatten()
-		pr = PoleResidueRationalFit(15,16, init = 'aaa',  real = True, verbose = True, tol_normdx = 1e-14, tol = 1e-7)
-		pr.fit(z, h)
-		r, JRI = pr.residual_jacobian_real(pr.lam)
-		print r.shape
-		print JRI.shape
-		print pr.lam
-		print pr.rho
-		print np.linalg.norm(pr.residual(pr.lam))
-		print np.linalg.norm(pr(z) - h)
 
 
