@@ -4,7 +4,7 @@ from opt.gn import gn, BadStep
 from ratfit import RationalFit
 from aaa import AAARationalFit
 
-from test import check_jacobian, check_gradient
+from check_der import check_jacobian, check_gradient
 
 class PolynomialBasisRationalFit(RationalFit):
 	""" Fit a rational function of degree (m,n) to samples using a barycentric parameterization 
