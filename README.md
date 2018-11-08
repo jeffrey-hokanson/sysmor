@@ -10,4 +10,5 @@ Code and numerical examples accompanying two papers by Jeffrey M. Hokanson and C
 * H2-Optimal Model Reduction Using Projected Nonlinear Least Squares
 * Least Squares Rational Approximation
 
+[Documentation](https://mor.readthedocs.io)
 
