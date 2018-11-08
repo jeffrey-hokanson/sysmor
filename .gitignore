@@ -1,3 +1,6 @@
 docs/build
 *.pyc
 *.swp
+.pytest_cache
+.eggs
+.coverage
