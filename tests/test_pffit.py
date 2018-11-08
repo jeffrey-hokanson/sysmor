@@ -55,6 +55,7 @@ def test_pf_jacobian_tan():
 	f = np.tan(coeff*z)
 	
 	W1 = lambda x : x
+	np.random.seed(0)
 	W2a = np.random.randn(N,N) + 1j * np.random.randn(N,N)
 	W2 = lambda x: np.dot(W2a, x)
 	
@@ -62,9 +63,26 @@ def test_pf_jacobian_tan():
 	for (m,n) in [(5,6), (7,6)]:
 		# unweighted / weighted check
 		for W in [W1, W2]:
+			print("Checking varpro complex jacobian")
 			assert pf_check_jacobian_complex(z, f, W, m, n) < 1e-7
+			print("Checking varpro real jacobian")
 			assert pf_check_jacobian_real(z, f, W, m, n) < 1e-7
+			print("Checking plain complex jacobian")
 			assert pf_check_jacobian_complex_plain(z, f, W, m, n) < 1e-7
 
+def test_pf_fit():
+	N = 100
+	coeff = 4
+	z = np.exp(2j*np.pi*np.linspace(0,1, N, endpoint = False))
+	f = np.tan(coeff*z)
+	
+	pf = PartialFractionRationalFit(9,10)
+	pf.fit(z, f)
+	err = np.linalg.norm(f - pf(z))/np.linalg.norm(f)
+	assert err <= 1e-7
 
+	pf = PartialFractionRationalFit(9,10, field = 'real')
+	pf.fit(z, f)
+	err = np.linalg.norm(f - pf(z))/np.linalg.norm(f)
+	assert err <= 1e-7
 

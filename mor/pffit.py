@@ -89,7 +89,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		# Add a polynomial of degree self.m - self.n, which has self.m - self.n + 1 columns
 		# Here for numerical stability we use a Legendre polynomial basis scaled for the data
 		if self.m - self.n >= 0:
-			V = np.hstack([V, self.legendre_vandmat(self.m - self.n , z)])
+			V = np.hstack([V, self._legendre_vandmat(self.m - self.n , z)])
 
 		return V
 
@@ -184,10 +184,10 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 				Theta = np.hstack([Theta, Theta1])
 	
 		if self.m - self.n >= 0:
-			Theta = np.hstack([Theta, self.legendre_vandmat(self.m - self.n, self.z)])
+			Theta = np.hstack([Theta, self._legendre_vandmat(self.m - self.n, self.z)])
  
 		WTheta = self.W(Theta)
-		Wh = self.W(self.h)
+		Wf = self.W(self.f)
 
 		# Now make into real/imaginary form
 		WThetaRI = np.zeros((WTheta.shape[0]*2, WTheta.shape[1]), dtype = np.float)
@@ -213,7 +213,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 				Omega = np.hstack([Omega, Omega1])
 	
 		if self.m - self.n >= 0:
-			Omega = np.hstack([Omega, self.legendre_vandmat(self.m - self.n, self.z)])
+			Omega = np.hstack([Omega, self._legendre_vandmat(self.m - self.n, self.z)])
  
 		WOmega = self.W(Omega)
 		Wf = self.W(self.f)
@@ -425,7 +425,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		return J
 
 	def plain_residual_jacobian(self, x, return_real = False, jacobian = True):
-		assert self.real is False, "plain Jacobian only implemented for complex systems"
+		assert self.field == 'complex', "plain Jacobian only implemented for the complex field"
 		lam = x[:self.n]
 		rho_c = x[self.n:]
 		
@@ -435,7 +435,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		Wf = self.W(self.f)
 
 		# Compute residual
-		r = Wf - np.dot(V, rho_c)
+		r = Wf - np.dot(WV, rho_c)
 		if not jacobian:
 			if return_real: return r.view(float)
 			else: return r
@@ -457,5 +457,12 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		
 		return r.view(float), -JRI	
 		
-
-
+if __name__ == '__main__':
+	N = 100
+	coeff = 4
+	z = np.exp(2j*np.pi*np.linspace(0,1, N, endpoint = False))
+	f = np.tan(coeff*z)
+	
+	pf = PartialFractionRationalFit(9,10, field = 'real')
+	pf.fit(z, f)
+	print("Error %5.3e" % (np.linalg.norm(f - pf(z))/np.linalg.norm(f),))
