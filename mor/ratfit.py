@@ -94,13 +94,13 @@ class RationalFit:
 			to applying no weight, i.e., :math:`\mathbf{W} = \mathbf{I}`.
 		"""
 		z = np.array(z)
-		h = np.array(z)
+		f = np.array(f)
 		assert len(z.shape) == 1, "z must be a vector"
-		assert len(h.shape) == 1, "h must be a vector"
-		assert z.shape == h.shape, "z and h must have the same dimensions"
+		assert len(f.shape) == 1, "h must be a vector"
+		assert z.shape == f.shape, "z and h must have the same dimensions"
 	
 		self.z = np.copy(z)
-		self.h = np.array(h, dtype = np.complex)
+		self.f = np.array(f, dtype = np.complex)
 		
 		if W is not None:
 			if isinstance(self.W, np.array):
@@ -113,7 +113,6 @@ class RationalFit:
 		self._set_scaling()
 
 		lam0 = self._init(W)
-
 		self._fit(lam0)
 
 	def to_system(self):
@@ -202,7 +201,7 @@ class OptimizationRationalFit(RationalFit):
 		""" Use the AAA Algorithm to initialize the poles
 		"""
 		aaa = AAARationalFit(self.n)
-		aaa.fit(self.z, self.h)
+		aaa.fit(self.z, self.f)
 		lam = aaa.poles()		
 		return lam
 	
@@ -244,7 +243,7 @@ class OptimizationRationalFit(RationalFit):
 			nodes = np.array(nodes) + (min_real + max_real)/2.
 	
 		lam = None
-		res = np.copy(self.h)
+		res = np.copy(self.f)
 		while n <= n_orig:
 			num_degree = min(step, n)+1
 			q = LagrangePolynomial(nodes[:num_degree])
