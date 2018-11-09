@@ -7,7 +7,21 @@ from aaa import AAARationalFit
 from check_der import check_jacobian, check_gradient
 
 class PolynomialBasisRationalFit(RationalFit):
-	""" Fit a rational function of degree (m,n) to samples using a barycentric parameterization 
+	"""Fits a rational approximation parameterized using two polynomial bases
+
+	Given a basis for the numerator :math:`\lbrace \phi_k\\rbrace_{k=0}^m`
+	and denominator :math:`\lbrace \psi_k\\rbrace_{k=0}^n`, this class fits a rational
+	approximation to :math:`z_j, f(z_j)` using the paramterization
+
+	.. math::
+
+		r(z; \mathbf{a}, \mathbf{b}) := 
+			\\frac{\sum_{k=0}^m a_k \phi_k(z)}{\sum_{k=0}^n b_k \psi_k(z)}.
+
+	This class offers two choices of bases for the numerator and denominator separately:
+	
+	- A **Legendre polynomial** that has been scaled based on :math:`z` to improve conditioning
+	- A **Lagrange polynomial** specified in terms of provided interpolation points
 
 	Parameters
 	----------
@@ -15,17 +29,28 @@ class PolynomialBasisRationalFit(RationalFit):
 		degree of polynomial in numerator
 	n : int
 		degree of polynomial in denominator
-	init: one of ['aaa']
-		Initialization strategy
-	W: None or np.ndarray(N,N)
-		Weighting matrix
-	kwargs:
-		Additional arguments to pass on to opt/gn
+	field: {'complex', 'real'}, optional 
+		Field over which to find the rational approximation; defaults to complex
+	init: {'aaa', 'recursive'}, optional
+		Initialization technique if initial poles are not provided to the fit function
+	numerator_basis: {'legendre', 'lagrange'}, optional
+		Basis for the numerator polynomial; defaults to legendre
+	denominator_basis: {'legendre', 'lagrange'}, optional
+		Basis for the denominator polynomial; defaults to legendre
+	zhat_numerator: array-like, optional
+		The :math:`m+1` Lagrange nodes specifying the Lagrange basis for the numerator
+	zhat_denominator: array-like, optional
+		The :math:`n+1` Lagrange nodes specifying the Lagrange basis for the denominator
+	normalize: {'monic', 'norm'}, optional
+		Normalization for the free parameter the parameterization.  
+		If :code:`monic`, the denominator polynomial is monic.
+		If :code:`norm`, the coefficients in the denominator polynomial have unit 2-norm. 
+	kwargs: dict, optional
+		Additional arguments to pass to the optimizer
 	"""
 
-	def __init__(self, m, n, init = 'aaa', W = None, numerator_basis = 'legendre', denominator_basis = 'legendre',
-		zhat_numerator = None, zhat_denominator = None, real = False,
-		normalize = 'monic', **kwargs):
+	def __init__(self, m, n, field = 'complex', init = 'aaa', numerator_basis = 'legendre', denominator_basis = 'legendre',
+		zhat_numerator = None, zhat_denominator = None,	normalize = 'monic', **kwargs):
 		assert m >= 0, "polynomial degree of the numerator must be non negative"
 		assert n >= 0, "polynomial degree of the denominator must be non negative"
 		self.m = m

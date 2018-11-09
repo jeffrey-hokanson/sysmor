@@ -3,7 +3,7 @@ import numpy as np
 from scipy.linalg import solve_triangular, lstsq, svd
 from scipy.optimize import least_squares
 from lagrange import LagrangePolynomial, BarycentricPolynomial
-from opt.gn import gn, BadStep
+from opt.gn import BadStep
 from marriage import marriage_sort
 from ratfit import RationalFit
 from optfit import OptimizationRationalFit
@@ -58,24 +58,20 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 	kwargs: dict, optional
 		Additional arguments to pass to the optimizer
 
-	Attributes
-	----------
-	lam: array
-		Poles of rational function
-	rho_c: array
-		Residues and coefficients of polynomial terms
 
 	"""
 	def __init__(self, m, n, field = 'complex', stable = False, init = 'aaa', **kwargs):
 
 		assert m + 1 >= n, "Pole-residue parameterization requires m + 1 >= n" 
 		OptimizationRationalFit.__init__(self, m, n, field = field, stable = stable, init = init, **kwargs)
-	
 
+	
 	def __call__(self, z):
 		V = self.vandmat(self.lam, z)
 		return np.dot(V, self.rho_c)
 
+	def pole_residue(self):
+		return self.lam, self.rho
 	
 	def vandmat(self, lam, z = None):
 		""" Builds the Vandermonde-like matrix for the pole-residue parameterization
@@ -356,7 +352,12 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		res = lambda b: self.residual_real(b, return_real = True)
 		jac = lambda b: self.jacobian_real(b)
 		
-		b, info = gn(f=res, F=jac, x0=b0, **self.kwargs)
+		# Solve the optimization problem 	
+		res = least_squares(res, b0, jac, **self.kwargs)
+		b = res.x
+
+		#b, info = gn(f=res, F=jac, x0=b0, **self.kwargs)
+
 		# Compute residues
 		r, a = self.residual_jacobian_real(b, jacobian = False, return_real = True)
 		lam = self._b2lam(b) 
