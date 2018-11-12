@@ -72,6 +72,7 @@ def test_pf_jacobian_tan():
 			assert pf_check_jacobian_complex_plain(z, f, W, m, n) < 1e-7
 
 def test_pf_fit():
+	# Checks based on expected residual
 	N = 100
 	coeff = 4
 	z = np.exp(2j*np.pi*np.linspace(0,1, N, endpoint = False))
@@ -87,6 +88,22 @@ def test_pf_fit():
 	err = np.linalg.norm(f - pf(z))/np.linalg.norm(f)
 	assert err <= 1e-7
 
+def test_pf_fit_stable():
+	from mor.demos import build_string
+	string = build_string()
+	z = 1j*np.linspace(-1000,1000,100)
+	f = np.array([string.transfer(zz) for zz in z]).reshape(-1)
+	
+	for arg, kwargs in [ 
+			( (9,10), {'field': 'complex'}),
+			( (9,10), {'field': 'real'}),
+			( (8,9), {'field': 'real'}),
+		]:
+		kwargs['stable'] = True
+		pf = PartialFractionRationalFit(*arg, **kwargs)
+		pf.fit(z, f)
+		lam, rho = pf.pole_residue()
+		assert np.all(lam.real <= 0), "Did not recover a stable system"
 
 def test_pf_real():
 	# Ensure the conversion into pole/residue form is accurate
