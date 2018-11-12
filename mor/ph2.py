@@ -16,9 +16,7 @@ class ProjectedH2MOR(H2MOR):
 
 	"""
 	def __init__(self, rom_dim, real = True):
-		self.rom_dim = rom_dim
-		self.real = True
-
+		H2MOR.__init__(self, rom_dom, real = real)
 
 	def _fit(self, H):
 		pass
