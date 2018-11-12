@@ -21,7 +21,7 @@ from copy import deepcopy
 
 import matplotlib.pyplot as plt
 
-__all__ = ['LTISystem', 'StateSpaceSystem', 'RationalTransferSystem', 'EmptySystem', 'PoleResidueSystem']
+__all__ = ['LTISystem', 'StateSpaceSystem', 'TransferSystem', 'RationalTransferSystem', 'EmptySystem', 'PoleResidueSystem']
 
 
 class LTISystem(object):
@@ -161,15 +161,20 @@ class TransferSystem(LTISystem):
 			raise NotImplementedError
 		return self._lim_zH
 
-	def transfer(self, z):
+	def transfer(self, z, der = False):
 		z = np.complex(z)
 		Hz = self._scaling*self._transfer(z)
-		return Hz.reshape(self.output_dim, self.input_dim)
+		Hz = Hz.reshape(self.output_dim, self.input_dim)
+		if der:
+			Hpz = self._scaling*self._transfer_der(z)
+			Hpz = Hpz.reshape(self.output_dim, self.input_dim)
+			return Hz, Hpz
+		else:
+			return Hz
 
 	def transfer_der(self, z):
 		z = np.complex(z)
 		Hz = self._scaling*self._transfer(z)
-		Hpz = self._scaling*self._transfer_der(z)
 		return Hz.reshape(self.output_dim, self.input_dim), Hpz.reshape(self.output_dim, self.input_dim)
 
 	def _fdcheck(self):

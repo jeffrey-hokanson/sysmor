@@ -3,7 +3,7 @@ import numpy as np
 from scipy.linalg import solve_triangular, lstsq, svd
 from scipy.optimize import least_squares
 from lagrange import LagrangePolynomial, BarycentricPolynomial
-from opt.gn import gn, BadStep
+from opt.gn import BadStep
 from marriage import marriage_sort
 from ratfit import RationalFit
 from optfit import OptimizationRationalFit
@@ -58,12 +58,6 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 	kwargs: dict, optional
 		Additional arguments to pass to the optimizer
 
-	Attributes
-	----------
-	lam: array
-		Poles of rational function
-	rho_c: array
-		Residues and coefficients of polynomial terms
 
 	"""
 	def __init__(self, m, n, field = 'complex', stable = False, init = 'aaa', **kwargs):
@@ -71,11 +65,12 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		assert m + 1 >= n, "Pole-residue parameterization requires m + 1 >= n" 
 		OptimizationRationalFit.__init__(self, m, n, field = field, stable = stable, init = init, **kwargs)
 	
-
-	def __call__(self, z):
+	def _call(self, z):
 		V = self.vandmat(self.lam, z)
 		return np.dot(V, self.rho_c)
 
+	def pole_residue(self):
+		return self.lam, self.rho
 	
 	def vandmat(self, lam, z = None):
 		""" Builds the Vandermonde-like matrix for the pole-residue parameterization
@@ -253,7 +248,6 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		return JRI
 
 	def _fit(self, lam0):
-
 		if self.field == 'real':
 			return self._fit_real(lam0)
 		else:
@@ -263,16 +257,18 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		res = lambda lam: self.residual(lam.view(complex), return_real=True)
 		jac = lambda lam: self.jacobian(lam.view(complex))
 
-		#if self.trajectory == 'polynomial':
-		#	trajectory = lambda x0, p, t: self.polynomial_trajectory(x0.view(complex), p.view(complex), t).view(float)
-		#elif self.trajectory == 'pole':
-		#	trajectory = lambda x0, p, t: self.pole_trajectory(x0.view(complex), p.view(complex), t).view(float)
 
-		#lamRI, info = gn(f=res, F=jac, x0=lam0.view(float), trajectory = trajectory, **self.kwargs)
-		#lam = lamRI.view(complex)
-		#self.lam = lam
+		if self.stable:
+			# Constrain the real part of the poles
+			lb = -np.inf*np.ones(lam0.view(float).shape)
+			ub = np.inf*np.ones(lam0.view(float).shape)
+			real_part = ( 1j*np.ones(lam0.shape)).view(float) == 0.
+			ub[real_part] = 0.
+			bounds = (lb, ub)
+		else:
+			bounds = (-np.inf, np.inf)
 
-		res = least_squares(res, lam0.view(float), jac = jac, **self.kwargs)
+		res = least_squares(res, lam0.view(float), jac = jac, bounds = bounds, **self.kwargs)
 		lam = res.x.view(complex)
 		self.lam = lam
 
@@ -290,6 +286,8 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 
 
 	def _lam2b(self, lam):
+		""" Convert a set of poles into a denominator in a 2-term partial fraction expansion
+		"""
 		# project lam so that it is in the space of acceptable lam
 		I = marriage_sort(lam, lam.conjugate())
 		lam = 0.5*(lam + lam[I].conjugate())
@@ -346,7 +344,6 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 			lam.append( -b[i]/2. - np.sqrt(0j + b[i]**2 - 4*b[i+1])/2.)
 			i += 2
 
-
 		lam = np.array(lam, dtype = np.complex)
 		return self._inverse_transform(lam)
 
@@ -356,7 +353,25 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		res = lambda b: self.residual_real(b, return_real = True)
 		jac = lambda b: self.jacobian_real(b)
 		
-		b, info = gn(f=res, F=jac, x0=b0, **self.kwargs)
+		# If we are enforcing a stability constraint, setup the box constraints
+		if self.stable:
+			lb = -np.inf*np.ones(b0.shape)
+			ub = np.inf*np.ones(b0.shape)
+			if self.n % 2 == 1:
+				lb[0] = 0
+				lb[1::2] = 0
+			else:
+				lb[0::2] = 0
+			bounds = (lb, ub)
+		else:
+			bounds = (-np.inf, np.inf)
+		
+		# Solve the optimization problem 	
+		res = least_squares(res, b0, jac, bounds = bounds, **self.kwargs)
+		b = res.x
+
+		#b, info = gn(f=res, F=jac, x0=b0, **self.kwargs)
+
 		# Compute residues
 		r, a = self.residual_jacobian_real(b, jacobian = False, return_real = True)
 		lam = self._b2lam(b) 

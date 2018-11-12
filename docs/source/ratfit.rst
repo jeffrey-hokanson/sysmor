@@ -22,6 +22,7 @@ Here we describe two: a pole-residue approach and a polynomial based approach.
 
 .. autoclass:: mor.PartialFractionRationalFit
 
+
 .. autoclass:: mor.PolynomialBasisRationalFit
 
 

@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.abspath('../..'))
 
 # -- Project information -----------------------------------------------------
 
-project = u'H2 Model Reduction'
+project = u'Model Order Reduction'
 copyright = u'2018, Jeffrey M. Hokanson and Caleb C. Magruder'
 author = u'Jeffrey M. Hokanson and Caleb C. Magruder'
 

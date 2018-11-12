@@ -22,6 +22,11 @@ class OptimizationRationalFit(RationalFit):
 		aaa = AAARationalFit(self.n)
 		aaa.fit(self.z, self.f)
 		lam, res = aaa.pole_residue()		
+
+		# If we want stable, flip poles into LHP	
+		if self.stable:
+			lam = -np.abs(lam.real) + 1j*lam.imag
+	
 		return lam
 	
 

@@ -55,9 +55,19 @@ class RationalFit:
 
 
 	def __call__(self, z):
-		"""Evaluate the rational approximation at the given point(s)
+		"""Evaluates the rational approximation
+
+		Parameters
+		----------
+		z: array-like
+			points to evaluate the rational approximation at
+		
+		Returns
+		-------
+		rz: array-like
+			Evaluates this rational function
 		"""
-		raise NotImplementedError
+		return self._call(z)
 
 	def _set_scaling(self):
 		# Constants ocassionaly used in fitting
