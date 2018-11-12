@@ -100,7 +100,7 @@ class AAARationalFit(RationalFit):
 		L = (C.T * self.f[~self.Ihat]).T - C*self.f[self.Ihat]
 		return L
 
-	def __call__(self, zeval):
+	def _call(self, zeval):
 		zhat = self.z[self.Ihat]
 		hhat = self.f[self.Ihat]
 		with np.errstate(divide='ignore',invalid='ignore'):

@@ -2,7 +2,6 @@ from marriage import *
 
 
 from lagrange import LagrangePolynomial, BarycentricPolynomial
-from system import *
 
 # Rational fitting methods
 from ratfit import RationalFit
@@ -12,3 +11,11 @@ from vecfit import VFRationalFit
 from skfit import SKRationalFit
 from aaa import AAARationalFit
 
+# LTI Systems
+from system import *
+
+# H2 Model Reduction
+from h2mor import H2MOR
+
+# Tutorials
+import demos

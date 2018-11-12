@@ -3,17 +3,21 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to H2 Model Reduction's documentation!
-==============================================
+Welcome to Model Order Reduction's documentation!
+=================================================
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
-   system
    lagrange
-   utils 
    ratfit
+   system
+   h2mor
+   utils 
+   demos
+
+
 
 Indices and tables
 ==================

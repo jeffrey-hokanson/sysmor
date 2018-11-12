@@ -220,7 +220,7 @@ class PolynomialBasisRationalFit(RationalFit):
 		
 		return Psi
 
-	def __call__(self, zeval):
+	def _call(self, zeval):
 		Phi = self.numerator_vandmat(zeval)
 		Psi = self.denominator_vandmat(zeval)
 
