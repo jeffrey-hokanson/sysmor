@@ -20,6 +20,13 @@ class H2MOR:
 		self.real = True
 		self._total_fom_evals = 0
 		self._total_fom_der_evals = 0
+		
+		# Initialize dictionary of existing samples of H
+		self._H_mu = {}
+		self._H_mu_der = {}
+
+		# Initialize history 
+		self.history = []
 
 	def eval_transfer(self, H, mu, der = False):
 		""" Helper function to evaluate the transfer function, recycling existing data.
@@ -50,6 +57,7 @@ class H2MOR:
 	
 		for i in range(len(mu)):
 			# Try to grab the values from existing evaluations
+			success = False
 			try:	
 				H_mu[i] = self._H_mu[mu[i]]
 				if der: H_mu_der[i] = self._H_mu_der[mu[i]]
@@ -75,6 +83,7 @@ class H2MOR:
 					
 					self._H_mu_der[mu[i]] = np.copy(H_mu_der[i])
 					self._total_fom_der_evals += 1
+					self._total_fom_evals += 1
 				else:
 					H_mu[i] = H.transfer(mu[i])
 				
@@ -94,12 +103,9 @@ class H2MOR:
 		H: LTISystem
 			Full order model to reduce 
 		"""
-		# Initialize dictionary of existing samples of H
-		self._H_mu = {}
-		self._H_mu_der = {}
 
-		# Initialize history 
-		self.history = []
+		# Re-initialize data structures for logging
+		H2MOR.__init__(self, self.rom_dim, self.real)
 
 		# Call child fit routine
 		self._fit(H, **kwargs)
