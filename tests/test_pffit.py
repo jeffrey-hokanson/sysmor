@@ -80,6 +80,12 @@ def test_pf_fit():
 	pf.fit(z, f)
 	err = np.linalg.norm(f - pf(z))/np.linalg.norm(f)
 	assert err <= 1e-7
+	
+	# Check an odd fit
+	pf = PartialFractionRationalFit(10,11)
+	pf.fit(z, f)
+	err = np.linalg.norm(f - pf(z))/np.linalg.norm(f)
+	assert err <= 1e-7
 
 	pf = PartialFractionRationalFit(9,10, field = 'real')
 	pf.fit(z, f)
