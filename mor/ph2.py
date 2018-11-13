@@ -1,8 +1,9 @@
 from __future__ import division
 import numpy as np
+from scipy.linalg import solve_triangular
 from h2mor import H2MOR
 from pffit import PartialFractionRationalFit
-from cauchy import cauchy_ldl, cauchy_inv_norm  
+from cauchy import cauchy_ldl 
 
 def subspace_angle_V_M(mu, lam):
 	"""Compute the subspace angles between V and M
@@ -10,6 +11,32 @@ def subspace_angle_V_M(mu, lam):
 	
 	"""
 	pass
+
+
+# TODO: Move this function somewhere else
+def cholesky_inv_norm(f, L, d, p):
+	""" Evaluate the weighted 2-norm associated with Cholesky factorization
+
+	Given a permuted Cholesky factorization of a matrix :math:`\mathbf{M}`
+
+	.. math::
+		
+		\mathbf{M} = \mathbf{P} \mathbf{L} \mathbf{D} \mathbf{L}^* \mathbf{P}^\\top
+
+	with lower triangular matrix :math:`\mathbf{L}`, 
+	diagonal matrix :math:`\mathbf{D}`, 
+	and a permutation matrix :math:`\mathbf{P}`,
+	evaluate the norm associated with :math:`\mathbf{M}^{-1}`;
+	i.e., for a vector :math:`\mathbf{f}`
+	
+	.. math:: 
+
+		\mathbf{f}^* \mathbf{M}^{-1} \mathbf{f} = \| \mathbf{D}^{-1/2} \mathbf{L}^{-1} \mathbf{P} \mathbf{f}\|_2^2
+
+	"""
+	Linvf = solve_triangular(L, f[p], lower = True, trans = 'N')
+	
+	return np.linalg.norm(d**(-0.5)*Linvf)
 
 
 class ProjectedH2MOR(H2MOR):
@@ -65,7 +92,7 @@ class ProjectedH2MOR(H2MOR):
 			
 			# Compute the weight matrix
 			L,d,p = cauchy_ldl(mu) 
-			M = lambda x: cauchy_inv_norm(x, L, d, p)
+			M = lambda x: cholesky_inv_norm(x, L, d, p)
 
 			# Find rational approximation (inner loop)
 
@@ -75,7 +102,7 @@ class ProjectedH2MOR(H2MOR):
 			# Initialization based on previous poles
 			if (lam_old is not None) and len(lam_old) == Hr2.rom_dim:
 				Hr2.fit(mu, H_mu, W = M, lam0 = lam_old)
-				if Hr2.residual_norm() < Hr1.residual_norm()
+				if Hr2.residual_norm() < Hr1.residual_norm():
 					Hr = Hr2
 				else:
 					Hr = Hr1

@@ -1,6 +1,6 @@
 import numpy as np
 
-__all__ = ['cauchy_ldl', 'cauchy_inv_norm']
+__all__ = ['cauchy_ldl']
 
 def cauchy_ldl(mu):
 	""" Compute LDL* factorization of Cauchy matrix
@@ -82,7 +82,3 @@ def cauchy_ldl(mu):
 	L[-1,-1] = g[-1]
 	return L, d, p
 
-def cauchy_inv_norm(f, L, d, p):
-	""" Evaluate the weighted 2-norm associated with an inverse Cauchy matrix
-	"""	
-	pass

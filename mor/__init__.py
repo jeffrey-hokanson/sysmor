@@ -18,6 +18,8 @@ from system import *
 
 # H2 Model Reduction
 from h2mor import H2MOR
+import ph2
+from ph2 import ProjectedH2MOR, cholesky_inv_norm
 
 # Tutorials
 import demos
