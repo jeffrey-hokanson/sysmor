@@ -128,6 +128,15 @@ class RationalFit:
 		lam0 = self._init(W)
 		self._fit(lam0)
 
+
+	def residual_norm(self):
+		""" Computes the (weighted) 2-norm of the residual
+		"""
+
+		res = self.W(self.f - self(z))
+		return np.linalg.norm(res, 2)
+
+
 	def pole_residue(self):
 		"""Return the poles and residues of the rational function
 

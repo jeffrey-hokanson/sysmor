@@ -1,5 +1,7 @@
-from marriage import *
 
+# Utilities
+from marriage import *
+from cauchy import *
 
 from lagrange import LagrangePolynomial, BarycentricPolynomial
 
