@@ -99,6 +99,31 @@ def cholesky_inv(f, L, d, p):
 	#return d.reshape(-1,1)**(-0.5)*Linvf
 	return np.diag(d**(-0.5)).dot(Linvf)
 
+def cholesky_inv_norm(f, L, d, p):
+	""" Evaluate the weighted 2-norm associated with Cholesky factorization
+
+	Given a permuted Cholesky factorization of a matrix :math:`\mathbf{M}`
+
+	.. math::
+		
+		\mathbf{M} = \mathbf{P} \mathbf{L} \mathbf{D} \mathbf{L}^* \mathbf{P}^\\top
+
+	with lower triangular matrix :math:`\mathbf{L}`, 
+	diagonal matrix :math:`\mathbf{D}`, 
+	and a permutation matrix :math:`\mathbf{P}`,
+	evaluate the weight associated with :math:`\mathbf{M}^{-1}`.
+	Namely, given a vector :math:`\mathbf{f}`, 
+	we note evaluating the norm is equivalent to
+	
+	.. math:: 
+
+		\mathbf{f}^* \mathbf{M}^{-1} \mathbf{f} = \| \mathbf{D}^{-1/2} \mathbf{L}^{-1} \mathbf{P} \mathbf{f}\|_2^2
+
+	Here we return the interior of the 2-norm on the right.
+
+	"""
+	return np.linalg.norm(cholesky_inv(f, L, d, p),2)
+
 class ProjectedH2MOR(H2MOR):
 	""" Projected H2-optimal Model Reduction
 

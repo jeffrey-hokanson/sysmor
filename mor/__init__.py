@@ -19,7 +19,7 @@ from system import *
 # H2 Model Reduction
 from h2mor import H2MOR
 import ph2
-from ph2 import ProjectedH2MOR, cholesky_inv, subspace_angle_V_M
+from ph2 import ProjectedH2MOR, cholesky_inv, cholesky_inv_norm, subspace_angle_V_M
 
 # Tutorials
 import demos
