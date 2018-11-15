@@ -33,3 +33,5 @@ Utility Functions
 -----------------
 .. autofunction:: mor.ph2.cholesky_inv_norm
 
+.. autofunction:: mor.ph2.subspace_angle_V_M
+

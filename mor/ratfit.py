@@ -53,6 +53,11 @@ class RationalFit:
 		# Default weighting matrix: identity
 		self.W = lambda x: x
 
+		# set the scaling 
+		self._max_real = 0.5
+		self._min_real = -0.5
+		self._min_imag = -0.5
+		self._max_imag = 0.5
 
 	def __call__(self, z):
 		"""Evaluates the rational approximation
@@ -116,7 +121,7 @@ class RationalFit:
 		self.f = np.array(f, dtype = np.complex)
 		
 		if W is not None:
-			if isinstance(self.W, np.array):
+			if isinstance(W, np.ndarray):
 				self.W = lambda x: np.dot(W, x)
 			else:
 				self.W = W
@@ -133,7 +138,7 @@ class RationalFit:
 		""" Computes the (weighted) 2-norm of the residual
 		"""
 
-		res = self.W(self.f - self(z))
+		res = self.W(self.f - self.__call__(self.z))
 		return np.linalg.norm(res, 2)
 
 

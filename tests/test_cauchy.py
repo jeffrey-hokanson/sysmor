@@ -65,7 +65,7 @@ def test_cholesky_inv_norm(n = 50):
 	norm_L = cholesky_inv_norm(f, L, d, p)
 	print norm_L**2	
 
-	assert np.abs(norm_L**2 - norm_M)/np.abs(norm_M) < 1e-8
+	assert np.abs(norm_L**2 - norm_M)/np.abs(norm_M) < 1e-7
 
 	norm_L2 = np.linalg.norm(np.diag(d**(-0.5)).dot(solve_triangular(L, P.T.dot(f), lower = True, trans = 'N')))
 	print norm_L2**2 

@@ -2,7 +2,22 @@ import numpy as np
 from scipy.optimize import least_squares
 from mor import PartialFractionRationalFit
 from mor.check_der import check_jacobian
+from mor import marriage_norm, marriage_sort
 
+
+def test_pf_b2lam(n = 6):
+	pf = PartialFractionRationalFit(n-1, n, field = 'real')
+	#np.random.seed(10)	
+	#lam = np.random.randn(n) + 1j*np.random.randn(n)
+	#lam = (lam + lam.conj())/2.
+	
+	lam = -1 + 1j*np.linspace(-2,2,n)
+	b = pf._lam2b(lam)
+	lam2 = pf._b2lam(b)
+	I = marriage_sort(lam, lam2)
+	print lam
+	print lam2[I]
+	print marriage_norm(lam, lam2)
  
 def pf_check_jacobian_complex(z, f, W,  m = 5, n = 6):
 	pf = PartialFractionRationalFit(m, n, field = 'complex')
@@ -64,11 +79,11 @@ def test_pf_jacobian_tan():
 	for (m,n) in [(5,6), (7,6), (4,5), (6,5)]:
 		# unweighted / weighted check
 		for W in [W1, W2]:
-			print("Checking varpro complex jacobian")
+			print("Checking varpro complex jacobian: m=%d, n=%d" % (m,n))
 			assert pf_check_jacobian_complex(z, f, W, m, n) < 1e-7
-			print("Checking varpro real jacobian")
+			print("Checking varpro real jacobian: m=%d, n=%d" % (m,n))
 			assert pf_check_jacobian_real(z, f, W, m, n) < 1e-7
-			print("Checking plain complex jacobian")
+			print("Checking plain complex jacobian: m=%d, n=%d" % (m,n))
 			assert pf_check_jacobian_complex_plain(z, f, W, m, n) < 1e-7
 
 def test_pf_fit():
@@ -138,4 +153,5 @@ def test_pf_real():
 	
 
 
-
+if __name__ == '__main__':
+	test_pf_jacobian_tan()

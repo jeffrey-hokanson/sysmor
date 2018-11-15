@@ -60,11 +60,12 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 
 
 	"""
-	def __init__(self, m, n, field = 'complex', stable = False, init = 'aaa', **kwargs):
+	def __init__(self, m, n, field = 'complex', stable = False, init = 'aaa', stable_margin = 1e-7, **kwargs):
 
 		assert m + 1 >= n, "Pole-residue parameterization requires m + 1 >= n" 
 		OptimizationRationalFit.__init__(self, m, n, field = field, stable = stable, init = init, **kwargs)
-	
+		self.stable_margin = stable_margin	
+
 	def _call(self, z):
 		V = self.vandmat(self.lam, z)
 		return np.dot(V, self.rho_c)
@@ -165,17 +166,15 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		zt = self._transform(self.z)
 		Psi = np.vstack([zt, np.ones(zt.shape)]).T	
 		zt2 = zt**2
-		if self.n % 2 == 0:
-			Omega = np.hstack([ (Psi.T/(zt2 + np.dot(Psi, b[2*k:2*k+2] ))).T for k in range(self.n//2)])
-		else:	
-			Omega = 1./(zt + b[0]).reshape(-1,1)
-			if self.n > 1:
-				Omega1 = np.hstack([ (Psi.T/(zt2 + np.dot(Psi, b[2*k+1:2*k+3] ))).T for k in range(self.n//2)])
-				Omega = np.hstack([Omega, Omega1])
+		Theta = [ (Psi.T/(zt2 + np.dot(Psi, b[2*k:2*k+2] ))).T for k in range(self.n//2)]
+		if self.n % 2 == 1:
+			Theta.append( 1./(zt + b[-1]).reshape(-1,1))
 	
 		if self.m - self.n >= 0:
-			Omega = np.hstack([Omega, self._legendre_vandmat(self.m - self.n, self.z)])
- 
+			Omega = np.hstack(Theta + [self._legendre_vandmat(self.m - self.n, self.z)])
+ 		else:
+			Omega = np.hstack(Theta)
+
 		WOmega = self.W(Omega)
 		Wf = self.W(self.f)
 
@@ -205,18 +204,12 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 
 		for k in range(self.n):
 			dOmega = np.zeros(Omega.shape, dtype = np.complex)
-			if self.n % 2 == 1 and k == 0:
-				dOmega[:,0] = -1./(zt + b[0])**2
-			elif self.n % 2 == 1:
-				I = [1 + 2*((k-1)//2), 2 + 2*((k-1)//2)]
-				j = (k+1) % 2
-				dOmega[:,I] = -(Psi.T * ( Psi[:,j]*(zt2 + np.dot(Psi, b[I]))**(-2))).T
-			elif self.n % 2 == 0:
+			if (self.n % 2 == 0) or ( k < self.n-1):
 				I = [2*(k//2), 1 + 2*(k//2)]
 				j = k % 2
 				dOmega[:,I] = -(Psi.T * ( Psi[:,j]*(zt2 + np.dot(Psi, b[I]))**(-2))).T
 			else:
-				raise NotImplementedError
+				dOmega[:,k] = -1./(zt + b[-1])**2
 			
 			dWOmega = self.W(dOmega)
 			
@@ -263,7 +256,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 			lb = -np.inf*np.ones(lam0.view(float).shape)
 			ub = np.inf*np.ones(lam0.view(float).shape)
 			real_part = ( 1j*np.ones(lam0.shape)).view(float) == 0.
-			ub[real_part] = 0.
+			ub[real_part] = -self.stable_margin
 			bounds = (lb, ub)
 		else:
 			bounds = (-np.inf, np.inf)
@@ -295,56 +288,52 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		# Transform
 		lam = self._transform(lam)
 
-		# Split into part of complex pairs and real eigenvalues
-		lam_imag = lam[lam.imag > 0]
-		lam_real = lam[lam.imag == 0].real
-		lam_real = np.sort(lam_real)
-
-		# setup initial b
+		# Sort into pairs
+		lam_new = [lam_i for lam_ in lam[lam.imag>0] for lam_i in [lam_, lam_.conj()] ] 
+		lam_new += [lam_ for lam_ in np.sort(lam[lam.imag==0].real)]
+		assert len(lam_new) == len(lam)
+		lam = np.array(lam_new, dtype = np.complex)
 		b = np.zeros(self.n)
-		j_real = 0
-		j_imag = 0
-		i = 0
-		if self.n % 2 == 1:
-			b[0] = -lam_real[0]
-			j_real += 1
-			i += 1
-
-		while i < self.n:
-			if j_real < len(lam_real):
-				# Compute the coefficients for the quadratic polynomial 
-				# z^2 + beta * z + gamma
-				# From the quadratic formula, the roots are -beta/2 +/- sqrt(beta^2 - 4\gamma)/2
-				# beta = -(lam0 + lam1)
-				beta = -(lam_real[j_real] + lam_real[j_real+1])
-				# delta value of the discriminant
-				delta = np.abs(lam_real[j_real] - lam_real[j_real+1])
-				gamma = -(delta**2 - beta**2)/4.
-				b[i] = beta
-				b[i+1] = gamma
-				j_real += 2
-			else:
-				beta = -2*lam_imag[j_imag].real
-				delta2 = -4*lam_imag[j_imag].imag**2
+		for i in range(self.n // 2):
+			if lam[i].imag != 0:
+				# If we have a complex conjugate pair, 
+				# z^2 + beta*z + gamma = 0 
+				beta = -2*lam[2*i].real
+				delta2 = -4*lam[2*i].imag**2
 				gamma = -(delta2 - beta**2)/4.
-				b[i] = beta
-				b[i+1] = gamma
-				j_imag += 1	
-			i += 2
+				b[2*i] = beta
+				b[2*i+1] = gamma
+			else:
+				beta = -(lam[2*i].real + lam[2*i+1].real)
+				# delta value of the discriminant
+				delta = np.abs(lam[2*i].real - lam[2*i+1].real)
+				gamma = -(delta**2 - beta**2)/4.
+				b[2*i] = beta
+				b[2*i+1] = gamma
+		if (self.n % 2 == 1):
+			b[-1] = -lam[-1].real	
+
 		return b
 
 	def _b2lam(self, b):
-		lam = []
-		i = 0
-		if self.n % 2 == 1:
-			lam.append(-b[i])
-			i+=1
-		while i < self.n:
-			lam.append( -b[i]/2. + np.sqrt(0j + b[i]**2 - 4*b[i+1])/2.)
-			lam.append( -b[i]/2. - np.sqrt(0j + b[i]**2 - 4*b[i+1])/2.)
-			i += 2
+		lam = np.zeros((self.n,), dtype = np.complex)
 
-		lam = np.array(lam, dtype = np.complex)
+		for i in range(self.n // 2):
+			# Here we are careful in how we compute the roots via the quadratic equation
+			# to avoid cancellation.
+			# https://math.stackexchange.com/q/311590
+			if b[2*i] < 0:
+				lam[2*i  ] = -b[2*i]/2. + np.sqrt(0j + b[2*i]**2 - 4*b[2*i+1])/2.
+				lam[2*i+1] = b[2*i+1]/lam[2*i]
+			elif b[2*i] > 0:
+				lam[2*i  ] = -b[2*i]/2. - np.sqrt(0j + b[2*i]**2 - 4*b[2*i+1])/2.
+				lam[2*i+1] = b[2*i+1]/lam[2*i]
+			else:
+				lam[2*i  ] = np.sqrt(b[2*i+1])
+				lam[2*i-1] = -np.sqrt(b[2*i+1])
+
+		if self.n % 2 == 1:
+			lam[-1] = -b[-1]
 		return self._inverse_transform(lam)
 
 
@@ -355,13 +344,12 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		
 		# If we are enforcing a stability constraint, setup the box constraints
 		if self.stable:
-			lb = -np.inf*np.ones(b0.shape)
+			# Working through the quadratic formula,
+			# [ -b +/- sqrt(b^2 - 4c) ]/2
+			# has roots in the LHP if b, c are in the positive orthant
+			lb = self.stable_margin*np.ones(b0.shape)
+			#lb[1::2] = 0.
 			ub = np.inf*np.ones(b0.shape)
-			if self.n % 2 == 1:
-				lb[0] = 0
-				lb[1::2] = 0
-			else:
-				lb[0::2] = 0
 			bounds = (lb, ub)
 		else:
 			bounds = (-np.inf, np.inf)
@@ -369,12 +357,14 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		# Solve the optimization problem 	
 		res = least_squares(res, b0, jac, bounds = bounds, **self.kwargs)
 		b = res.x
-
 		#b, info = gn(f=res, F=jac, x0=b0, **self.kwargs)
 
 		# Compute residues
 		r, a = self.residual_jacobian_real(b, jacobian = False, return_real = True)
 		lam = self._b2lam(b) 
+		print "lam", lam
+		if self.stable:
+			assert np.all(lam.real < 0), "Stability constraint failed"
 		self.b = b
 		self.lam = lam
 		rho = np.zeros(self.n, dtype = np.complex)

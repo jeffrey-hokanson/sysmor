@@ -4,8 +4,7 @@ import numpy as np
 
 
 class H2MOR:
-	""" Projected H2-optimal Model Reduction
-
+	""" Abstract Base Class for H2 Model Reduction
 
 	Parameters
 	----------
@@ -18,6 +17,9 @@ class H2MOR:
 	def __init__(self, rom_dim, real = True):
 		self.rom_dim = rom_dim
 		self.real = True
+		self._init_logging()
+
+	def _init_logging(self):
 		self._total_fom_evals = 0
 		self._total_fom_der_evals = 0
 		
@@ -98,6 +100,10 @@ class H2MOR:
 	def fit(self, H, **kwargs):
 		""" Construct a reduced order model
 
+		Given a linear time invariant system :math:`H`, 
+		construct a reduced order model of the specified degree.
+
+
 		Parameters
 		----------
 		H: LTISystem
@@ -105,7 +111,7 @@ class H2MOR:
 		"""
 
 		# Re-initialize data structures for logging
-		H2MOR.__init__(self, self.rom_dim, self.real)
+		self._init_logging()
 
 		# Call child fit routine
 		self._fit(H, **kwargs)
