@@ -213,8 +213,8 @@ class TransferSystem(LTISystem):
 	"""
 	def __init__(self, transfer, transfer_der = None, input_dim = 1, output_dim = 1, isreal = False, lim_zH = None):
 		self._lim_zH = complex(lim_zH)
-		self._transfer = transfer
-		self._transfer_der = transfer_der
+		self._H = transfer
+		self._Hder = transfer_der
 		self._scaling = complex(1.)
 		self._input_dim = input_dim
 		self._output_dim = output_dim
@@ -222,11 +222,11 @@ class TransferSystem(LTISystem):
 
 	@property
 	def input_dim(self):
-		self._input_dim
+		return self._input_dim
 
 	@property
 	def output_dim(self):
-		self._output_dim
+		return self._output_dim
 
 	@property
 	def lim_zH(self):
@@ -235,11 +235,16 @@ class TransferSystem(LTISystem):
 		return self._lim_zH
 
 	def _transfer(self, z, der = False):
-		Hz = self._scaling*self._transfer(z)
-		Hz = Hz.reshape(self.output_dim, self.input_dim)
+		Hz = np.zeros((len(z), self.output_dim, self.input_dim), dtype = np.complex)
 		if der:
-			Hpz = self._scaling*self._transfer_der(z)
-			Hpz = Hpz.reshape(self.output_dim, self.input_dim)
+			Hzp = np.zeros((len(z), self.output_dim, self.input_dim), dtype = np.complex)
+		
+		for i in range(len(z)):
+			Hz[i] = self._scaling*(self._H(z).reshape(self.output_dim, self.input_dim))
+			if der:
+				Hpz[i] = self._scaling*(self._Hder(z).reshape(self.output_dim, self.input_dim))
+		
+		if der:	
 			return Hz, Hpz
 		else:
 			return Hz
@@ -620,6 +625,10 @@ class StateSpaceSystem(LTISystem):
 			ew = eigvals(self.A)
 			return np.max(ew.real)
 
+
+class SparseStateSpaceSystem(StateSpaceSystem):
+	def __init__(self, A, B, C, E = None):
+		pass
 
 
 class PoleResidueSystem(StateSpaceSystem):
