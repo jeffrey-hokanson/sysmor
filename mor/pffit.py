@@ -348,12 +348,12 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 			# [ -b +/- sqrt(b^2 - 4c) ]/2
 			# has roots in the LHP if b, c are in the positive orthant
 			lb = self.stable_margin*np.ones(b0.shape)
-			#lb[1::2] = 0.
 			ub = np.inf*np.ones(b0.shape)
 			bounds = (lb, ub)
+			# Enforce that b0 statisfies the constraints
+			b0 = np.maximum(b0, lb)
 		else:
-			bounds = (-np.inf, np.inf)
-		
+			bounds = (-np.inf, np.inf)	
 		# Solve the optimization problem 	
 		res = least_squares(res, b0, jac, bounds = bounds, **self.kwargs)
 		b = res.x
