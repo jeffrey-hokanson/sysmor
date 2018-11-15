@@ -21,98 +21,107 @@ from copy import deepcopy
 
 import matplotlib.pyplot as plt
 
-__all__ = ['LTISystem', 'StateSpaceSystem', 'TransferSystem', 'RationalTransferSystem', 'EmptySystem', 'PoleResidueSystem']
+__all__ = ['LTISystem', 'ComboSystem', 'StateSpaceSystem', 'TransferSystem', 'EmptySystem', 'PoleResidueSystem']
 
 
 class LTISystem(object):
-	""" Abstract base class for systems
+	""" Abstract base class for linear-time invariant systems
 	"""
-	# Abstract base class for LTI systems
-	def transfer(self, z):
-		"""Evaluate the transfer function of the system
-		"""
-		raise NotImplementedError
+	def transfer(self, z, der = False):
+		r"""Evaluate the transfer function of the system
 	
-	# Not needed right now
-	def impulse(self, t):
-		"""Evaluate the impulse response of the system
+		A dynamical system is uniquely defined in terms of its transfer function 
+		:math:`H:\mathbb{C}\to \mathbb{C}` that is analytic in the open right half plane.
+
+		Parameters
+		----------
+		z: array-like (n,)
+			Points at which to evaluate the transfer function
+		der: bool
+			If True, return the derivative of the transfer function as well
+
+		Returns
+		-------
+		Hz: array-like (n,input_dim, output_dim)
+			Samples of the transfer function
+		dHz: array-like (n,input_dim, output_dim)
+			Derivative of the transfer function at z;
+			only returned if :code:`der` is True.
+		"""
+		z = np.atleast_1d(z)
+		assert len(z.shape) == 1, "Too many dimensions in input z"
+		return self._transfer(z, der = der)
+	
+#	def impulse(self, t):
+#		"""Evaluate the impulse response of the system
+#		"""
+#		raise NotImplementedError
+
+	def __add__(self, G):
+		""" Add two systems
+
+		Given this system :math:`H` and another :math:`G`,
+		add these two systems together such that the result adds the transfer functions;
+		i.e., form :math:`G+H`.
 		"""
 		raise NotImplementedError
 
-	def __add__(self, other):
+	def __sub__(self, G):
+		""" Subtract two systems
+
+		Given this system :math:`H` and another :math:`G`,
+		add these two systems together such that the result adds the transfer functions;
+		i.e., form :math:`H - G`.
+		"""
 		raise NotImplementedError
 
-	def __sub__(self, other):
+	def __mul__(self, const):
+		""" Scalar multiplication of a transfer function
+		"""
 		raise NotImplementedError
 
-	# Should assume 1D
 	@property
 	def input_dim(self):
+		"""Dimension of the input space
+		"""
 		raise NotImplementedError
 
 	@property
 	def output_dim(self):
-		raise NotImplementedError
-
-	@property
-	def isreal(self):
-		raise NotImplementedError
-
-
-	# Should assume 1D
-	@property
-	def input_dim(self):
-		raise NotImplementedError
-
-	@property
-	def output_dim(self):
-		raise NotImplementedError
-
-	@property
-	def isreal(self):
+		"""Dimension of the output space
+		"""
 		raise NotImplementedError
 
 	@property
 	def lim_zH(self):
+		""" 
+		"""
 		raise NotImplementedError
 
-	def bode(self, H = None, nsamp = 200, imag_max = None, imag_min = None, filename = None):
-		# Support for SISO only
-		if imag_max is None:
-			real, imag = self.pole_box()
-			imag_max = imag[1]
-		if imag_min is None:
-			imag_min = 1e-6 * imag_max
-		z = 1j * np.logspace(np.log10(imag_min), np.log10(imag_max), num=nsamp)
-		h = np.zeros((nsamp,), dtype=complex)
-		h2 = np.zeros((nsamp,), dtype=complex)
-		for i in range(0, nsamp):
-			h[i] = self.transfer(z[i])
-			if H is not None:
-				h2[i] = H.transfer(z[i])
 
-		if filename is None:
-			plt.subplot(211)
-			plt.loglog(np.abs(z), np.abs(h))
-			if H is not None:
-				plt.loglog(np.abs(z), np.abs(h2), 'r')
-			plt.xlabel('Frequency, $\omega$')
-			plt.ylabel('$|H(i\omega)|$')
-			plt.subplot(212)
-			plt.semilogx(np.abs(z), np.angle(h))
-			if H is not None:
-				plt.semilogx(np.abs(z), np.angle(h2), 'r')
-			plt.xlabel('Frequency, $\omega$')
-			plt.ylabel('$\\angle H(i\omega)$')
-			plt.show()
-		else:
-			pgf = PGF()
-			pgf.add('omega', np.abs(z))
-			pgf.add('modulus', np.abs(h))
-			pgf.add('angle', np.angle(h))
-			pgf.write(filename)
+	@property
+	def isreal(self):
+		r""" If true, the system has a real representation
+
+		Real systems have the property that
+
+		.. math::
+		
+			\overbar{H(z)} = H(\overbar{z}).
+
+		This can half the cost of performing operations on H.
+
+		Returns
+		-------
+		bool:
+			True if the system has a real representation; false otherwise.
+		"""
+		return self._isreal
+
 
 	def quad_norm(self, L = 1, N = 200, H=None):
+		r"""Evaluate the H2-norm using a quadrature rule.
+		"""
 		mu = L * 1.j / np.tan(np.arange(1, 2 * N + 1) * np.pi / (2 * N + 1))
 
 		# Sample, invoking conjugacy
@@ -140,20 +149,84 @@ class LTISystem(object):
 		norm = np.linalg.norm(Delta*h) / np.sqrt(2*np.pi)
 		return norm
 
+
+class ComboSystem(LTISystem):
+	r""" Represents a sum of subsystems
+
+	Given a set of systems :math:`H_1,H_2,\ldots`,
+	this class represents the sum :math:`H`:
+	
+	.. math::
+	   
+		H = \sum_{i} H_i.
+
+	We do not need to worry about scalar constants
+	as these can be combined into the individual systems.
+
+	"""
+	def __init__(self, *args):
+		self.subsystems = args
+
+	def _transfer(self, z, der = False):
+		Hz = np.zeros((len(z), self.output_dim, self.input_dim), dtype = np.complex)
+		if der:
+			Hzp = np.zeros((len(z), self.output_dim, self.input_dim), dtype = np.complex)
+
+		# Evaluate the transfer function on each system
+		for sys in self.subsystems:
+			if der:
+				Hz1, Hzp1 = sys.transfer(z, True)
+				Hz += Hz1
+				Hzp += Hzp1	
+			else:
+				Hz1 = sys.transfer(z, False)
+				Hz += Hz1
+
+		if der:
+			return Hz, Hzp
+		else:
+			return Hz
+
+
+
 class TransferSystem(LTISystem):
-	def __init__(self, transfer, transfer_der, lim_zH = None):
+	r""" A system specified in terms of its transfer function.
+
+	This class describes systems in terms of a provided function.
+
+
+	Parameters
+	----------
+	transfer: callable
+		Function taking a single complex argument and 
+		evaluating the transfer function at that point,
+		returning a matrix of size (output_dim, input_dim).
+	transfer_der: callable, optional
+		Function taking a single complex argument and 
+		evaluating the transfer function at that point,
+		returning a matrix of size (output_dim, input_dim).
+	input_dim: int, default:1
+		Number of inputs
+	output_dim: int, default:1
+		Number of outputs		
+
+	"""
+	def __init__(self, transfer, transfer_der = None, input_dim = 1, output_dim = 1, isreal = False, lim_zH = None):
 		self._lim_zH = complex(lim_zH)
 		self._transfer = transfer
 		self._transfer_der = transfer_der
 		self._scaling = complex(1.)
+		self._input_dim = input_dim
+		self._output_dim = output_dim
+		self._isreal = isreal
 
 	@property
 	def input_dim(self):
-		return 1
+		self._input_dim
 
 	@property
 	def output_dim(self):
-		return 1
+		self._output_dim
 
 	@property
 	def lim_zH(self):
@@ -161,8 +234,7 @@ class TransferSystem(LTISystem):
 			raise NotImplementedError
 		return self._lim_zH
 
-	def transfer(self, z, der = False):
-		z = np.complex(z)
+	def _transfer(self, z, der = False):
 		Hz = self._scaling*self._transfer(z)
 		Hz = Hz.reshape(self.output_dim, self.input_dim)
 		if der:
@@ -171,18 +243,6 @@ class TransferSystem(LTISystem):
 			return Hz, Hpz
 		else:
 			return Hz
-
-	def transfer_der(self, z):
-		z = np.complex(z)
-		Hz = self._scaling*self._transfer(z)
-		return Hz.reshape(self.output_dim, self.input_dim), Hpz.reshape(self.output_dim, self.input_dim)
-
-	def _fdcheck(self):
-		z = np.complex(1+2j)
-		eps = 1e-5
-		dz = np.complex(-1-4j)
-		err = np.abs(self.transfer_der(z)*dz - (self.transfer(z+eps*dz) - self.transfer(z-eps*dz))/(2*eps))
-		print "FD Error is %1.3e" % err
 
 	def __mul__(self, other):
 		ret = deepcopy(self)
@@ -195,19 +255,36 @@ class TransferSystem(LTISystem):
 		return ret
 
 class StateSpaceSystem(LTISystem):
-	""" Defines a system in terms of its state-space representation
+	r"""Represents a continuous-time system specified in state-space form
+
+	Given matrices :math:`\mathbf{A}\in \mathbb{C}^{n\times n}`,
+	:math:`\mathbf{B}\in \mathbb{C}^{n\times p}`,
+	and :math:`\mathbf{C}\in \mathbb{C}^{q\times n}`,
+	this class represents the dynamical system
+
+	.. math::
+
+		\mathbf{x}'(t) &= \mathbf{A}\mathbf{x}(t) + \mathbf{B} \mathbf{u}(t) \quad \mathbf{x}(0) = \mathbf{0} \\
+		\mathbf{y}(t) &= \mathbf{C} \mathbf{x}(t).
 
 
-
+	Parameters
+	----------
+	A: array-like (n,n)
+		System matrix
+	B: array-like (n,p)
+		Matrix mapping input to state
+	C: array-like (q,n)
+		Matrix mapping state to output	
 
 	"""
 
 	def __init__(self, A, B, C, E = None, invert_E = False):
 		if issparse(A):
 			# Convert to CSR form for speed in sparse operations
-			self.A_ = csr_matrix(A)
+			self._A = csr_matrix(A)
 		else:
-			self.A_ = A.copy() 
+			self._A = A.copy() 
 		
 		if issparse(B):
 			B = B.todense()
@@ -216,46 +293,46 @@ class StateSpaceSystem(LTISystem):
 	
 		if invert_E is False and E is not None:
 			if issparse(E):
-				self.E_ = csr_matrix(E)
+				self._E = csr_matrix(E)
 			else:
-				self.E_ = E.copy()
+				self._E = E.copy()
 		elif invert_E is True and E is not None:
 			# Note that Er symmetric, complex, !!NOT Hermitian!! and hopefully invertible
 			# Dirty but it works!
 			if issparse(E):
 				E = csr_matrix(E)
-				self.A_ = spsolve(E, csc_matrix(self.A_))
+				self._A = spsolve(E, csc_matrix(self._A))
 				B = spsolve(E, B)
 			else:
-				self.A_ = solve(E, self.A_)
+				self._A = solve(E, self._A)
 				B = solve(E, B) 
 			self.E_ = None
 		else:
 			self.E_ = None
 		
-		self.B_ = B.copy()
-		self.C_ = C.copy()
+		self._B = B.copy()
+		self._C = C.copy()
 
 		if len(self.B_.shape) == 1:
-			self.B_ = self.B_.reshape(-1, 1)
+			self._B = self.B_.reshape(-1, 1)
 		if len(self.C_.shape) == 1:
-			self.C_ = self.C_.reshape(1, -1)
+			self._C = self.C_.reshape(1, -1)
 
 	@property
 	def A(self):
-		return self.A_
+		return self._A
 
 	@property
 	def B(self):
-		return self.B_
+		return self._B
 
 	@property
 	def C(self):
-		return self.C_
+		return self._C
 
 	@property
 	def E(self):
-		return self.E_
+		return self._E
 
 	@property
 	def state_dim(self):
@@ -557,38 +634,6 @@ class PoleResidueSystem(StateSpaceSystem):
 		StateSpaceSystem.__init__(self, A, B, C)
 		# TODO: Evaluate transfer function 
 
-class RationalTransferSystem(StateSpaceSystem):
-	""" Representation of a LTI system as a proper rational function
-	"""
-
-	def __init__(self, p, q):
-		assert isinstance(p, LagrangePolynomial)
-		assert isinstance(q, LagrangePolynomial)
-		assert p.degree < q.degree, "Must be a proper rational system with degree(p) < degree(q)"
-		self.p = deepcopy(p)
-		self.q = deepcopy(q)
-		self._build_statespace()
-
-	def _build_statespace(self):
-		# Generate state-space representation using a pole-residue expansion
-		# assuming only first-order poles
-		self._poles = self.q.roots()
-		assert np.max(self._poles.real) < 0, "Unstable system"
-		self.A_ = spblock_diag(self._poles)
-		# residues
-		# TODO: Is there a bug in the residue computation?
-		res = np.zeros(self._poles.shape, dtype=np.complex)
-		for i in range(len(self._poles)):
-			res[i] = self.p(self._poles[i]) / self.q.der(self._poles[i])
-
-		self.B_ = res.reshape(-1, 1)
-		self.C_ = np.ones((1, self.q.degree))
-
-	def transfer(self, z):
-		return self.p(z) / self.q(z)
-
-	def poles(self):
-		return self._poles
 
 
 class EmptySystem(StateSpaceSystem):
