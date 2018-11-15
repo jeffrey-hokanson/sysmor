@@ -1,5 +1,6 @@
 import numpy as np
-from system import TransferSystem 
+from system import TransferSystem, StateSpaceSystem 
+import scipy.io
 
 def build_string(epsilon = 1):
 	""" String equation model damped on half the interval
@@ -37,3 +38,15 @@ def build_string(epsilon = 1):
 	Hp = lambda z: -2*z*(6*z*np.sinh(z/2)**2 - 2*z*np.sinh(z/2)*np.sinh(z) + z*np.sinh(z)**2 - 4*z*np.cosh(z) + z*np.sinh(2*z)/np.sinh(z/2) - 12*np.sinh(z/2)**2*np.sinh(z) + 8*np.sinh(z)*np.cosh(z/2) - 8*np.sinh(z))/(eps*z*np.sinh(z) - 6*eps*np.sinh(z/2)**2 + 4*eps*np.cosh(z/2) - 4*eps + 2*z**2*np.sinh(z))**2
 	string = TransferSystem(transfer=H, transfer_der=Hp, lim_zH = 0.5)
 	return string
+
+
+def build_cdplayer():
+	""" The CD Player model
+	"""
+	data = scipy.io.loadmat('data/CDPlayer.mat')
+	A = data['A']
+	B = data['B']
+	C = data['C']
+
+	return StateSpaceSystem(A, B, C)
+

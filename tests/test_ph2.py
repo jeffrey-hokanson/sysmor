@@ -16,7 +16,8 @@ def test_subspace_angle_V_M(n = 10, m = 1):
 
 
 def test_ph2():
-	ph2 = ProjectedH2MOR(10, real = True, maxiter = 10)
+	np.random.seed(0)
+	ph2 = ProjectedH2MOR(2, real = True, maxiter = 10)
 
 	H = build_string()
 
