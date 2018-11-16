@@ -208,10 +208,14 @@ class TransferSystem(LTISystem):
 	input_dim: int, default:1
 		Number of inputs
 	output_dim: int, default:1
-		Number of outputs		
-
+		Number of outputs	
+	isreal: bool, default: False
+		If True, the system is real; otherwise it is complex.	
+	vectorized: bool
+		If True, evaluate transfer and transfer_der as 
 	"""
-	def __init__(self, transfer, transfer_der = None, input_dim = 1, output_dim = 1, isreal = False, lim_zH = None):
+	def __init__(self, transfer, transfer_der = None, input_dim = 1, output_dim = 1, isreal = False, lim_zH = None,
+			vectorized = False):
 		self._lim_zH = complex(lim_zH)
 		self._transfer = transfer
 		self._transfer_der = transfer_der
@@ -219,6 +223,7 @@ class TransferSystem(LTISystem):
 		self._input_dim = input_dim
 		self._output_dim = output_dim
 		self._isreal = isreal
+		self._vectorized = vectorized
 
 	@property
 	def input_dim(self):
@@ -235,7 +240,9 @@ class TransferSystem(LTISystem):
 		return self._lim_zH
 
 	def _transfer(self, z, der = False):
-		Hz = self._scaling*self._transfer(z)
+		n = len(z)
+		if self._vectorized:
+			Hz = self._scaling*(self._transfer(z)).reshape(r, self.output_dim, self.input_dim)
 		Hz = Hz.reshape(self.output_dim, self.input_dim)
 		if der:
 			Hpz = self._scaling*self._transfer_der(z)
@@ -243,6 +250,10 @@ class TransferSystem(LTISystem):
 			return Hz, Hpz
 		else:
 			return Hz
+
+
+
+	# Scalar multiplication
 
 	def __mul__(self, other):
 		ret = deepcopy(self)
