@@ -28,6 +28,8 @@ State-Space System
 ------------------
 
 .. autoclass:: mor.StateSpaceSystem
+
+.. autoclass:: mor.SparseStateSpaceSystem
   
 
  

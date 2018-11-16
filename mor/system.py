@@ -21,7 +21,7 @@ from copy import deepcopy
 
 import matplotlib.pyplot as plt
 
-__all__ = ['LTISystem', 'ComboSystem', 'StateSpaceSystem', 'TransferSystem', 'EmptySystem', 'PoleResidueSystem']
+__all__ = ['LTISystem', 'ComboSystem', 'StateSpaceSystem', 'SparseStateSpaceSystem', 'TransferSystem', 'EmptySystem', 'PoleResidueSystem']
 
 
 class LTISystem(object):
@@ -94,7 +94,18 @@ class LTISystem(object):
 
 	@property
 	def lim_zH(self):
-		""" 
+		r""" The limit along the imaginary axis
+	
+		This provides the two limits:
+	
+		.. math::
+
+			M_{\pm}[H] := \lim_{\omega\to \pm \infty} i\omega H(i\omega)
+
+		Returns
+		-------
+		M: tuple, length 2
+			:math:`M_-[H]` and :math:`M_+[H]`.
 		"""
 		raise NotImplementedError
 
@@ -107,7 +118,7 @@ class LTISystem(object):
 
 		.. math::
 		
-			\overbar{H(z)} = H(\overbar{z}).
+			\overline{H(z)} = H(\overline{z}).
 
 		This can half the cost of performing operations on H.
 
@@ -119,34 +130,58 @@ class LTISystem(object):
 		return self._isreal
 
 
-	def quad_norm(self, L = 1, N = 200, H=None):
+	def quad_norm(self, L = 1, n = 200):
 		r"""Evaluate the H2-norm using a quadrature rule.
+		
+		Here we use Boyd/Clenshaw-Curtis quadrature rule following [DGB15]_
+		to estimate the :math:`\mathcal{H}_2` norm of this system:
+
+		.. math::
+		
+			\| H \|_{\mathcal{H}_2}^2 &\approx \frac{|M_+[H]|^2 + |M_-[H]|^2}{4L(n+1)} + \sum_{j=1}^n w_j \|H(z_j)\|_F^2 \\
+			w_j &= \frac{ L}{2(n+1) \sin^2(j\pi/(n+1))}, \ z_j = i L \cot(j \pi/(n+1)), \ M_{\pm}[H] = \lim_{\omega\to\pm\infty} i\omega H(i\omega)
+
+		
+
+		Parameters
+		----------
+		L: float
+			Scaling factor in the quadrature rule
+		n: int
+			Number of samples to use in the quadrature rule
+
+		References
+		----------
+		.. [DGB15] Quadrature-based vector fitting for discretized H2 approximation.
+			Z. Drmac, S. Gugercin, and C. Beattie. 
+			SIAM J. Sci. Comput. 37 (2015) pp. 2738--2753
+
 		"""
-		mu = L * 1.j / np.tan(np.arange(1, 2 * N + 1) * np.pi / (2 * N + 1))
+	
+		# Quadrature points
+		z = (1.j*L) / np.tan(np.arange(1, n+1) * np.pi / (n+1))
+		
+		# Quadrature weights; see eq. (3.7) DGB15
+		w = 1./(2*(n+1)*np.sin( np.arange(1,n)*np.pi/(n+1))**2)
+		
+		# Sample the transfer function
+		# TODO: Exploit real structure if present to reduce calls
 
-		# Sample, invoking conjugacy
-		h = np.zeros((2 * N,), dtype=np.complex)
-		for j in range(N):
-			h[j] = complex(self.transfer(mu[j]))
-			h[-j-1] = np.conj(h[j])
-			if H is not None:
-				Hmu = complex(H.transfer(mu[j]))
-				h[j] -= Hmu
-				h[-j-1] -= Hmu.conjugate()
+		Hz = self.transfer(z)
 
-		# Add the 'sample' at infinity
-		h = np.hstack([h, np.array([self.lim_zH])])
-		if H is not None:
-			h[-1] -= H.lim_zH
+		# Evaluate the norm on the interior
+		Hz_norm2 = np.sum(np.abs(Hz)**2, axis = (1,2))
 
-		# Compute weights of quadrature rule
-		# Equivalent of the mass matrix; see eq. (3.7) DGB15
-		Delta = 1. / np.sin(np.arange(1, 2 * N + 1) * np.pi / (2 * N + 1)) * np.sqrt(
-			L * np.pi / (2 * N + 1))
-		# Add the special weight at the bottom
-		Delta = np.hstack([Delta, np.sqrt(np.pi / (L * (2 * N + 1)))])
+		# Evalute the sume
+		norm2 = np.sum(Hz_norm2*w)
 
-		norm = np.linalg.norm(Delta*h) / np.sqrt(2*np.pi)
+		# Add the limit points
+		lim_zH1, lim_zH2 = self.lim_zH
+
+		norm2 += (np.sum(np.abs(lim_zH1)**2) + np.sum(np.abs(lim_zH2)**2))/(4*L*(n+1))
+
+		# Take the square root to return the actual norm
+		norm = np.sqrt(norm2)
 		return norm
 
 
@@ -187,6 +222,12 @@ class ComboSystem(LTISystem):
 		else:
 			return Hz
 
+	def __mul__(self, const):
+		return ComboSystem(*[const*sys for sys in self.subsystems])
+
+	def __rmul__(self, const):
+		return ComboSystem(*[const*sys for sys in self.subsystems])
+
 
 
 class TransferSystem(LTISystem):
@@ -216,9 +257,13 @@ class TransferSystem(LTISystem):
 	"""
 	def __init__(self, transfer, transfer_der = None, input_dim = 1, output_dim = 1, isreal = False, lim_zH = None,
 			vectorized = False):
-		self._lim_zH = complex(lim_zH)
-		self._transfer = transfer
-		self._transfer_der = transfer_der
+
+		if self.lim_zH is not None:
+			self._lim_zH = [np.array(lim_zH[0]).reshape(output_dim, input_dim), np.array(lim_zH[1]).reshape(output_dim, input_dim)]
+		else:
+			self._lim_zH = None
+		self._H = transfer
+		self._Hder = transfer_der
 		self._scaling = complex(1.)
 		self._input_dim = input_dim
 		self._output_dim = output_dim
@@ -227,11 +272,11 @@ class TransferSystem(LTISystem):
 
 	@property
 	def input_dim(self):
-		self._input_dim
+		return self._input_dim
 
 	@property
 	def output_dim(self):
-		self._output_dim
+		return self._output_dim
 
 	@property
 	def lim_zH(self):
@@ -242,15 +287,23 @@ class TransferSystem(LTISystem):
 	def _transfer(self, z, der = False):
 		n = len(z)
 		if self._vectorized:
-			Hz = self._scaling*(self._transfer(z)).reshape(r, self.output_dim, self.input_dim)
-		Hz = Hz.reshape(self.output_dim, self.input_dim)
-		if der:
-			Hpz = self._scaling*self._transfer_der(z)
-			Hpz = Hpz.reshape(self.output_dim, self.input_dim)
+			Hz = self._scaling*(self._H(z)).reshape(n, self.output_dim, self.input_dim)
+			if der:
+				Hpz = self._scaling*(self._Hder(z)).reshape(n, self.output_dim, self.input_dim)
+		else:
+			Hz = np.zeros((len(z), self.output_dim, self.input_dim), dtype = np.complex)
+			for i in range(len(z)):
+				Hz[i] = self._scaling*(self._H(z).reshape(self.output_dim, self.input_dim))
+			
+			if der:
+				Hzp = np.zeros((len(z), self.output_dim, self.input_dim), dtype = np.complex)
+				for i in range(len(z)):
+					Hpz[i] = self._scaling*(self._Hder(z).reshape(self.output_dim, self.input_dim))
+		
+		if der:	
 			return Hz, Hpz
 		else:
 			return Hz
-
 
 
 	# Scalar multiplication
@@ -290,39 +343,11 @@ class StateSpaceSystem(LTISystem):
 
 	"""
 
-	def __init__(self, A, B, C, E = None, invert_E = False):
-		if issparse(A):
-			# Convert to CSR form for speed in sparse operations
-			self._A = csr_matrix(A)
-		else:
-			self._A = A.copy() 
+	def __init__(self, A, B, C):
+		self._A = np.array(A)
+		self._B = np.array(B)
+		self._C = np.array(C)
 		
-		if issparse(B):
-			B = B.todense()
-		if issparse(C):
-			C = C.todense()
-	
-		if invert_E is False and E is not None:
-			if issparse(E):
-				self._E = csr_matrix(E)
-			else:
-				self._E = E.copy()
-		elif invert_E is True and E is not None:
-			# Note that Er symmetric, complex, !!NOT Hermitian!! and hopefully invertible
-			# Dirty but it works!
-			if issparse(E):
-				E = csr_matrix(E)
-				self._A = spsolve(E, csc_matrix(self._A))
-				B = spsolve(E, B)
-			else:
-				self._A = solve(E, self._A)
-				B = solve(E, B) 
-			self.E_ = None
-		else:
-			self.E_ = None
-		
-		self._B = B.copy()
-		self._C = C.copy()
 
 		if len(self.B_.shape) == 1:
 			self._B = self.B_.reshape(-1, 1)
@@ -631,6 +656,10 @@ class StateSpaceSystem(LTISystem):
 			ew = eigvals(self.A)
 			return np.max(ew.real)
 
+
+class SparseStateSpaceSystem(StateSpaceSystem):
+	def __init__(self, A, B, C, E = None):
+		pass
 
 
 class PoleResidueSystem(StateSpaceSystem):
