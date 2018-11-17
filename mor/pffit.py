@@ -198,6 +198,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		if jacobian is False:
 			if return_real: return (rRI, a)
 			else: return (rRI.view(complex), a)
+	
 
 		# Now construct the Jacobian
 		JRI = np.empty( (self.z.shape[0] * 2, self.n), dtype = np.float64)
@@ -287,10 +288,10 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		
 		# Transform
 		lam = self._transform(lam)
-
 		# Sort into pairs
 		lam_new = [lam_i for lam_ in lam[lam.imag>0] for lam_i in [lam_, lam_.conj()] ] 
 		lam_new += [lam_ for lam_ in np.sort(lam[lam.imag==0].real)]
+		
 		assert len(lam_new) == len(lam)
 		lam = np.array(lam_new, dtype = np.complex)
 		b = np.zeros(self.n)
@@ -312,7 +313,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 				b[2*i+1] = gamma
 		if (self.n % 2 == 1):
 			b[-1] = -lam[-1].real	
-
+		
 		return b
 
 	def _b2lam(self, b):
@@ -362,7 +363,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		# Compute residues
 		r, a = self.residual_jacobian_real(b, jacobian = False, return_real = True)
 		lam = self._b2lam(b) 
-		print "lam", lam
+		
 		if self.stable:
 			assert np.all(lam.real < 0), "Stability constraint failed"
 		self.b = b

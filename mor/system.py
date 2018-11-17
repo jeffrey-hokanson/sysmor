@@ -22,7 +22,8 @@ from copy import deepcopy
 
 import matplotlib.pyplot as plt
 
-__all__ = ['LTISystem', 'ComboSystem', 'StateSpaceSystem', 'SparseStateSpaceSystem', 'TransferSystem', 'PoleResidueSystem']
+__all__ = ['LTISystem', 'ComboSystem', 'StateSpaceSystem', 'SparseStateSpaceSystem', 
+		'TransferSystem', 'PoleResidueSystem', 'ZeroSystem']
 
 
 class LTISystem(object):
@@ -92,6 +93,11 @@ class LTISystem(object):
 		"""Dimension of the output space
 		"""
 		raise NotImplementedError
+
+
+	@property
+	def shape(self):
+		return (self.output_dim, self.input_dim)
 
 	@property
 	def lim_zH(self):
@@ -346,29 +352,45 @@ class StateSpaceSystem(LTISystem):
 	"""
 
 	def __init__(self, A, B, C):
+	
 		try:
 			self._A = A.todense()
 		except:
 			self._A = np.array(A)
 		try:
-			self._B = B.todense()
+			self._B = B.todense() 
 		except:
 			self._B = np.array(B)
-
 		try:
-			self._C = C.todense()
+			self._C = C.todense() 
 		except:
 			self._C = np.array(C)
-		
+
 		if len(B.shape) == 1:
-			self._B = self.B_.reshape(-1, 1)
+			self._B = self._B.reshape(-1, 1)
 		if len(C.shape) == 1:
-			self._C = self.C_.reshape(1, -1)
+			self._C = self._C.reshape(1, -1)
+
+
+	def __getitem__(self, key):
+		"""Extract a subsystem component-wise
+		"""
+		if isinstance(key, tuple):
+			C = self.C[key[0]]
+			B = self.B[:,key[1]]
+		else:
+			C = self.C[key]
+
+		if isinstance(self, SparseStateSpaceSystem):
+			return SparseStateSpaceSystem(self.A, B, C)
+		else:
+			return StateSpaceSystem(self.A, B, C)
 
 	@property
 	def A(self):
 		""" State space matrix of size (n,n)
 		"""
+		# TODO: Should this return a copy to prevent overwriting referrence?
 		return self._A
 
 	@property
@@ -407,7 +429,6 @@ class StateSpaceSystem(LTISystem):
 
 		if self.spectral_abscissa() >= 0:
 			return np.inf
-
 		# Replace with code that exploits Q is rank-1 and sparse structure for A
 		norm2 = 0
 		for i in range(self.input_dim):
@@ -455,13 +476,15 @@ class StateSpaceSystem(LTISystem):
 
 		# By default for now, we convert things that are state-space systems to
 		# dense systems for the combination
-		if isinstance(other, StateSpaceSystem):
-			A = block_diag(self.A, np.array(other.A))
-			B = np.vstack([self.B, other.B])
-			C = np.hstack([self.C, other.C])
+		if isinstance(other, SparseStateSpaceSystem):
+			A = block_diag(self.A, other.A.todense() )
+		elif isinstance(other, (StateSpaceSystem, ZeroSystem)):
+			A = block_diag(self.A, other.A)
 		else: 
 			raise NotImplementedError("Don't know how to combine these systems")
 
+		B = np.vstack([self.B, other.B])
+		C = np.hstack([self.C, other.C])
 
 		return StateSpaceSystem(A, B, C)
 
@@ -470,9 +493,13 @@ class StateSpaceSystem(LTISystem):
 			raise ValueError("Input dimensions must be the same")
 		if self.output_dim != other.output_dim:
 			raise ValueError("Output dimensions must be the same")
-
-		if isinstance(other, StateSpaceSystem):
-			A = block_diag(self.A, np.array(other.A))
+		
+		if isinstance(other, SparseStateSpaceSystem):
+			A = block_diag(self.A, other.A.todense() )
+			B = np.vstack([self.B, other.B])
+			C = np.hstack([self.C, -1*other.C])
+		elif isinstance(other, (StateSpaceSystem,ZeroSystem)):
+			A = block_diag(self.A, other.A)
 			B = np.vstack([self.B, other.B])
 			C = np.hstack([self.C, -1*other.C])
 		else: 
@@ -497,6 +524,29 @@ class StateSpaceSystem(LTISystem):
 		else:
 			return np.isrealobj(self.A) & np.all(np.isreal(self.B)) & np.all(np.isreal(self.C)) & np.isrealobj(self.E)
 
+	def poles(self, which = 'LR', k =  1):
+		r"""Return the poles of the system
+
+		The eigenvalues of :math:`\mathbf{A}` are the poles of the transfer function :math:`H`.
+		Here we compute the eigenvalues of this matrix using a similar interface to :code:`eigs`
+
+		Parameters
+		----------
+		which: ['LR']
+			Which eigenvalues to compute 
+
+			* LR: largest real
+
+		k : int
+			Number of poles to return	
+		"""
+		ew = eig(self.A, left=False, right=False)
+		if which == 'LR':
+			I = np.argsort(-ew.real)
+		else:
+			raise NotImplementedError
+		return ew[I[:k]]
+
 #	def poles(self):
 #		if self.E is not None:
 #			raise NotImplementedError
@@ -513,17 +563,69 @@ class StateSpaceSystem(LTISystem):
 
 class SparseStateSpaceSystem(StateSpaceSystem):
 	def __init__(self, A, B, C, E = None):
-		pass
+		self._A = csr_matrix(A)
+		try:
+			self._B = self._B.todense() 
+		except:
+			self._B = np.array(B)
+		try:
+			self._C = self._C.todense() 
+		except:
+			self._C = np.array(C)
 
 
 	def spectral_abscissa(self):
 		ew = eigs(self.A, 1, which = 'LR', return_eigenvectors = False)
 		return float(ew.real)
 
-	
+
+	def __add__(self, other):
+		if self.input_dim != other.input_dim:
+			raise ValueError("Input dimensions must be the same")
+		if self.output_dim != other.output_dim:
+			raise ValueError("Output dimensions must be the same")
+
+		if isinstance(other, SparseStateSpaceSystem):
+			A = spblock_diag([self.A, other.A])
+		elif isinstance(other, StateSpaceSystem):
+			A = block_diag(self.A.todense(), other.A)
+
+		B = np.vstack([self.B, other.B])
+		C = np.hstack([self.C, other.C])
+		
+		if isinstance(other, SparseStateSpaceSystem):
+			return SparseStateSpaceSystem(A, B, C)
+		else:
+			return StateSpaceSystem(A, B, C)
 
 
-class PoleResidueSystem(StateSpaceSystem):
+	def __sub__(self, other):
+		if self.input_dim != other.input_dim:
+			raise ValueError("Input dimensions must be the same")
+		if self.output_dim != other.output_dim:
+			raise ValueError("Output dimensions must be the same")
+
+		if isinstance(other, SparseStateSpaceSystem):
+			A = spblock_diag([self.A, other.A])
+		elif isinstance(other, StateSpaceSystem):
+			A = block_diag(self.A.todense(), other.A)
+
+		B = np.vstack([self.B, other.B])
+		C = np.hstack([self.C, -1*other.C])
+		
+		if isinstance(other, SparseStateSpaceSystem):
+			return SparseStateSpaceSystem(A, B, C)
+		else:
+			return StateSpaceSystem(A, B, C)
+	# Implement poles	
+
+	def norm(self):
+		A = self.A.todense()
+		sys = StateSpaceSystem(A, self.B, self.C)
+		return sys.norm()	
+
+
+class PoleResidueSystem(SparseStateSpaceSystem):
 	def __init__(self, poles, residues):
 		self._poles = np.array(poles)
 		n = len(self._poles)
@@ -550,6 +652,12 @@ class PoleResidueSystem(StateSpaceSystem):
 	def spectral_abscissa(self):
 		return np.max(self._poles.real)
 
+
+class ZeroSystem(StateSpaceSystem):
+	def __init__(self, output_dim, input_dim):
+		self._A = np.zeros((0, 0))
+		self._B = np.zeros((0, input_dim))
+		self._C = np.zeros((output_dim, 0))
 
 
 

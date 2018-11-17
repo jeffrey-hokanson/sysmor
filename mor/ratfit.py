@@ -3,6 +3,10 @@ from __future__ import division
 import numpy as np
 from numpy.polynomial.legendre import legvander, legroots
 from lagrange import LagrangePolynomial
+
+
+#TODO: There seem to be some bugs present in the _transform, _inverse_transform pair
+# perhaps I should remove these
  
 class RationalFit:
 	"""An abstract base class for rational approximation algorithms
@@ -78,7 +82,8 @@ class RationalFit:
 		# Constants ocassionaly used in fitting
 		if self.field == 'real':
 			# If real, we force z to be inside a unit box
-			radius = max([np.max(np.abs(self.z.real)), np.max(np.abs(self.z.imag))])
+			#radius = max([np.max(np.abs(self.z.real)), np.max(np.abs(self.z.imag))])
+			radius = np.max(np.abs(self.z.imag))
 			self._max_real =  radius
 			self._min_real = -radius
 			self._max_imag =  radius	
@@ -129,8 +134,8 @@ class RationalFit:
 			self.W = lambda x: x
 	
 		self._set_scaling()
-
-		lam0 = self._init(W)
+		if lam0 is None:
+			lam0 = self._init(W)
 		self._fit(lam0)
 
 

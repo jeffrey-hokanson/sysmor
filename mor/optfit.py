@@ -1,6 +1,8 @@
 import numpy as np
 from ratfit import RationalFit
 from aaa import AAARationalFit
+from marriage import marriage_sort
+
 
 class OptimizationRationalFit(RationalFit):
 	""" Parent class for optimization based approaches for rational fitting
@@ -20,9 +22,13 @@ class OptimizationRationalFit(RationalFit):
 		""" Use the AAA Algorithm to initialize the poles
 		"""
 		aaa = AAARationalFit(self.n)
+		# Should we transform data for stability?
 		aaa.fit(self.z, self.f)
 		lam, res = aaa.pole_residue()		
 
+		if self.field == 'real':
+			I = marriage_sort(lam, lam.conjugate())
+			lam = 0.5*(lam + lam[I].conjugate())
 		# If we want stable, flip poles into LHP	
 		if self.stable:
 			lam = -np.abs(lam.real) + 1j*lam.imag
