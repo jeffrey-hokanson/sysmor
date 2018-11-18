@@ -313,7 +313,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 				b[2*i+1] = gamma
 		if (self.n % 2 == 1):
 			b[-1] = -lam[-1].real	
-		
+		print "b0      ", b	
 		return b
 
 	def _b2lam(self, b):
@@ -358,6 +358,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		# Solve the optimization problem 	
 		res = least_squares(res, b0, jac, bounds = bounds, **self.kwargs)
 		b = res.x
+		print "b final", b
 		#b, info = gn(f=res, F=jac, x0=b0, **self.kwargs)
 
 		# Compute residues

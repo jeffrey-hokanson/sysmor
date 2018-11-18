@@ -10,7 +10,6 @@ Welcome to Model Order Reduction's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   lagrange
    ratfit
    system
    h2mor

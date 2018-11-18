@@ -1,6 +1,6 @@
 import numpy as np
-
-__all__ = ['cauchy_ldl']
+import scipy.linalg
+__all__ = ['cauchy_ldl', 'cauchy_hermitian_svd']
 
 def cauchy_ldl(mu):
 	""" Compute LDL* factorization of Cauchy matrix
@@ -81,4 +81,36 @@ def cauchy_ldl(mu):
 	d[-1] = 1./(2*mu[-1].real) #1./(mu[-1] + mu[-1].conj())
 	L[-1,-1] = g[-1]
 	return L, d, p
+
+
+def cauchy_hermitian_svd(mu):
+	r""" Computes the singular value decomposition of a Hermitian Cauchy matrix
+	"""
+
+	L, d, p = cauchy_ldl(mu)
+
+	# Change to match notation in Dem00, Alg. 3 (end)
+	P = np.eye(len(mu))[p]
+	D = np.diag(d)
+	X = L
+	Y = L.conj().T
+
+	# STEP 1: compte X*D*Pinv = Q*R
+	[Q,R,p1] = scipy.linalg.qr(X.dot(D), pivoting = True, mode = 'economic')
+
+	
+	# STEP 2: W = R*P*Y'
+	# We pivot the rows 
+	W = np.dot(R, Y.conj().T[p1,:])
+	
+	# STEP 3: compute svd of W
+	[Ubar,s,VH] = np.linalg.svd(W, full_matrices = False, compute_uv = True)
+
+	# STEP 4: U = Q*Ubar
+	U = np.dot(Q, Ubar)
+
+	U = P.T.dot(U)
+	VH = VH.dot(P)
+
+	return U, s, VH
 

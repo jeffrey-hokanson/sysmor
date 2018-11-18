@@ -201,7 +201,7 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 		self.verbose = verbose
 		self.ftol = ftol
 		self.cond_max = cond_max
-		self.over_determine = 1
+		self.over_determine = 2
 
 	def _mu_init(self, H):
 		if isinstance(H, StateSpaceSystem):
@@ -244,11 +244,11 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 
 			# Initialize two copies of the fitting routine for the two initializations we will use 
 			if self.real:			
-				Hr1 = PartialFractionRationalFit(rom_dim-1, rom_dim, field = 'real', stable = True) 
-				Hr2 = PartialFractionRationalFit(rom_dim-1, rom_dim, field = 'real', stable = True) 
+				Hr1 = PartialFractionRationalFit(rom_dim-1, rom_dim, field = 'real', stable = True, verbose = 2) 
+				Hr2 = PartialFractionRationalFit(rom_dim-1, rom_dim, field = 'real', stable = True, verbose = 2) 
 			else:			
-				Hr1 = PartialFractionRationalFit(rom_dim-1, rom_dim, field = 'complex', stable = True) 
-				Hr2 = PartialFractionRationalFit(rom_dim-1, rom_dim, field = 'complex', stable = True) 
+				Hr1 = PartialFractionRationalFit(rom_dim-1, rom_dim, field = 'complex', stable = True, verbose = 2) 
+				Hr2 = PartialFractionRationalFit(rom_dim-1, rom_dim, field = 'complex', stable = True, verbose = 2) 
 
 			for Hr in [Hr1, Hr2]:
 				Hr._transform = lambda x:x
@@ -261,21 +261,24 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			# Compute the weight matrix
 			L,d,p = cauchy_ldl(mu) 
 			M = lambda x: cholesky_inv(x, L, d, p)
-
+			H_norm_est = np.linalg.norm(M(H_mu))
 			# Find rational approximation (inner loop)
 			# Default (AAA) initialization
 			Hr1.fit(mu, H_mu, W = M)
+			res_norm1 = Hr1.residual_norm()
+
 			if (lam_old is not None) and len(lam_old) == Hr2.n:
 				# Initialization based on previous poles
 				Hr2.fit(mu, H_mu, W = M, lam0 = lam_old)
+				res_norm2 = Hr2.residual_norm()
 				# Set the reduced order model to be the smaller of the two
-				if Hr2.residual_norm() < Hr1.residual_norm():
+				if res_norm2 < res_norm1:
 					Hr = Hr2
 				else:
 					Hr = Hr1
 			else:
 				Hr = Hr1
-			residual_norm = Hr.residual_norm()
+				res_norm2 = np.inf
 
 			lam, rho = Hr.pole_residue()	
 			Hr = PoleResidueSystem(lam, rho)	
@@ -305,11 +308,19 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			if self.verbose:
 				# Header
 				if it == 0:
-					print("  it | dim | FOM Evals | delta Hr |  cond M  |       mu star      | res norm |")
-					print("-----|-----|-----------|----------|----------|--------------------|----------|")
-				print("%4d | %3d |   %7d | %8.2e | %8.2e | %8.2e%+8.2ei | %8.2e | %8.2e" % 
+					print("  it | dim | FOM Evals | delta Hr |  cond M  |       mu star      | res norm |  init  |")
+					print("-----|-----|-----------|----------|----------|--------------------|----------|--------|")
+		
+				if np.abs(res_norm1 - res_norm2) < 1e-6:
+					init = 'either'
+				elif res_norm1 < res_norm2:
+					init = 'AAA'
+				else:
+					init = 'lam'
+				res_norm = min(res_norm1, res_norm2)	
+				print("%4d | %3d |   %7d | %8.2e | %8.2e | %8.2e%+8.2ei | %8.2e | %6s |%12.6e" % 
 					(it,rom_dim, self._total_fom_evals, delta_Hr, cond_M, mu_star.real, mu_star.imag,
-					residual_norm, (H-Hr).norm()/H.norm() ) )
+					res_norm/H_norm_est, init, (H-Hr).norm()/H.norm() ) )
 
 			# Break if termination conditions are met
 			if rom_dim == self.rom_dim:
@@ -334,7 +345,7 @@ if __name__ == '__main__':
 	H = build_cdplayer()
 	# Extract the 1/2 block
 	H = H[0,1]
-	Hr = ProjectedH2MOR(22, maxiter = 100, verbose = True, cond_max = 1e14, ftol = 1e-7)
+	Hr = ProjectedH2MOR(22, maxiter = 1000, verbose = True, cond_max = 1e20, ftol = 1e-7)
 	Hr.fit(H)	
 	
 	print("Relative H2 Norm: %5.2e" % ( (H-Hr).norm()/H.norm()))	
