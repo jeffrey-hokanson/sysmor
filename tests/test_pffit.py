@@ -150,8 +150,30 @@ def test_pf_real():
 		converted_residual = 0.5*np.linalg.norm(f - pf(z))**2
 		assert np.abs(residual - converted_residual) < 1e-7
 		
+def test_pf_normalization():
+	N = 100
+	z = 1j*np.linspace(-10,10, N)
+	z = np.random.randn(N) + 1j * np.random.randn(N)
+	lam_true = np.array([ -1 -1j, -1+1j, -5+5j, -5 -5j])
+	rho_true = np.array([1j, -1j, 10, 10])
 	
+	f = np.zeros(z.shape, dtype = np.complex) 
+	for lam, rho in zip(lam_true, rho_true):
+		f += rho/(z-lam)
 
+	pf = PartialFractionRationalFit(3,4, field = 'real')
+	pf.fit(z, f)
+	lam, rho = pf.pole_residue()
+	
+	print lam
+	print lam_true
+
+	print rho
+	print rho_true
+		
+	I = marriage_sort(lam_true, lam)
+	assert np.all(np.isclose(lam_true, lam[I]))
+	assert np.all(np.isclose(rho_true[I], rho[I]))
 
 if __name__ == '__main__':
-	test_pf_jacobian_tan()
+	test_pf_normalization()

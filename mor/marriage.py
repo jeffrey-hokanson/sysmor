@@ -3,7 +3,7 @@ import numpy as np
 def marriage_sort(a, b):
 	""" Align two vectors so that entry-wise using the stable marriage algorithm
 
-	Implements the Gale-Shapely algorithm [GS62] to align two vectors of complex numbers
+	Implements the Gale-Shapely algorithm [GS62]_ to align two vectors of complex numbers
 	such that the mismatch under the permutation is minimized.
 
 
@@ -20,9 +20,9 @@ def marriage_sort(a, b):
 		permutation such that a - b[I] is minimized 
 	
 
-	Citations
-	---------
-	[GS62] College Admissions and the Stability of Marriage. D. Gale and L. S. Shapley.,
+	References
+	----------
+	.. [GS62] College Admissions and the Stability of Marriage. D. Gale and L. S. Shapley.,
 		The American Mathematical Monthly, Jan 1962, pp. 9-15.
 
 	"""

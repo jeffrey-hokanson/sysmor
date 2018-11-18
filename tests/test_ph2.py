@@ -1,19 +1,26 @@
 import numpy as np
-from mor import subspace_angle_V_M
+from mor.ph2 import subspace_angle_V_M, subspace_angle_V_V
 from mor import ProjectedH2MOR
 from mor.demos import build_string
 
 def test_subspace_angle_V_M(n = 10, m = 1):
-	#mu = np.random.uniform(0.1, 1, size = (n,) ) + 1j*np.random.randn(n)
-	#lam = np.random.uniform(-1, -0.1, size = (m,)) + 1j*np.random.randn(m)
 
-	eps = 1e-2
-	mu = [1 + eps*1j, 1 - eps*1j]
-	lam = [-1]
+	mu = 0.1 + 1j*np.linspace(-1,1, n)
+	lam = -np.arange(1,m+1)
 
-	subspace_angle_V_M(mu, lam)
-	# TODO: Implement test
+	phi = subspace_angle_V_M(mu, lam)
 
+	print "%12.8e %12.8e" % (phi[0], phi[1])
+	min_err = np.inf
+	for h in np.logspace(-7,-1,7):
+		hmu = np.hstack([ -lam + 1j*h , -lam - 1j*h ])
+		phi_approx = subspace_angle_V_V(mu, hmu)
+		print "%12.8e %12.8e; h= %5.2e" % (phi_approx[0], phi_approx[1], h)
+		err = np.linalg.norm(phi_approx - phi, np.inf)
+		if err < min_err:
+			min_err = err
+
+	assert min_err < 1e-6
 
 def test_ph2():
 	np.random.seed(0)
@@ -26,4 +33,4 @@ def test_ph2():
 
 
 if __name__ == '__main__':
-	test_ph2()	
+	test_subspace_angle_V_M()	

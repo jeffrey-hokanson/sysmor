@@ -83,11 +83,12 @@ def cauchy_ldl(mu):
 	return L, d, p
 
 
-def cauchy_hermitian_svd(mu):
+def cauchy_hermitian_svd(mu, L = None, d = None, p = None):
 	r""" Computes the singular value decomposition of a Hermitian Cauchy matrix
 	"""
 
-	L, d, p = cauchy_ldl(mu)
+	if (L is None) or (d is None) or (p is None):
+		L, d, p = cauchy_ldl(mu)
 
 	# Change to match notation in Dem00, Alg. 3 (end)
 	P = np.eye(len(mu))[p]

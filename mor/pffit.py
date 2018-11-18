@@ -60,7 +60,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 
 
 	"""
-	def __init__(self, m, n, field = 'complex', stable = False, init = 'aaa', stable_margin = 1e-7, **kwargs):
+	def __init__(self, m, n, field = 'complex', stable = False, init = 'aaa', stable_margin = 1e-6, **kwargs):
 
 		assert m + 1 >= n, "Pole-residue parameterization requires m + 1 >= n" 
 		OptimizationRationalFit.__init__(self, m, n, field = field, stable = stable, init = init, **kwargs)
@@ -262,7 +262,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		else:
 			bounds = (-np.inf, np.inf)
 
-		res = least_squares(res, lam0.view(float), jac = jac, bounds = bounds, **self.kwargs)
+		self._res = res = least_squares(res, lam0.view(float), jac = jac, bounds = bounds, **self.kwargs)
 		lam = res.x.view(complex)
 		self.lam = lam
 
@@ -313,7 +313,6 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 				b[2*i+1] = gamma
 		if (self.n % 2 == 1):
 			b[-1] = -lam[-1].real	
-		print "b0      ", b	
 		return b
 
 	def _b2lam(self, b):
@@ -348,17 +347,17 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 			# Working through the quadratic formula,
 			# [ -b +/- sqrt(b^2 - 4c) ]/2
 			# has roots in the LHP if b, c are in the positive orthant
-			lb = self.stable_margin*np.ones(b0.shape)
+			lb = (self.stable_margin/(self._max_real - self._min_real)  )*np.ones(b0.shape)
 			ub = np.inf*np.ones(b0.shape)
+			#ub[0::2] = -1e1*self._min_real
 			bounds = (lb, ub)
 			# Enforce that b0 statisfies the constraints
 			b0 = np.maximum(b0, lb)
 		else:
 			bounds = (-np.inf, np.inf)	
 		# Solve the optimization problem 	
-		res = least_squares(res, b0, jac, bounds = bounds, **self.kwargs)
+		self._res = res = least_squares(res, b0, jac, bounds = bounds, x_scale = 'jac', **self.kwargs)
 		b = res.x
-		print "b final", b
 		#b, info = gn(f=res, F=jac, x0=b0, **self.kwargs)
 
 		# Compute residues

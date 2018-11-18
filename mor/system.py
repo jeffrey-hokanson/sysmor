@@ -627,10 +627,20 @@ class SparseStateSpaceSystem(StateSpaceSystem):
 
 class PoleResidueSystem(SparseStateSpaceSystem):
 	def __init__(self, poles, residues):
-		self._poles = np.array(poles)
+		self._poles = np.atleast_1d(np.array(poles))
 		n = len(self._poles)
 		# TODO: What about MIMO pole residue systems
 		self._residues = np.array(residues).reshape(n, 1,1)
+
+	def _transfer(self, z, der = False):
+		if der:
+			raise NotImplementedError
+
+		n = len(z)
+		Hz = np.zeros((n,self.output_dim, self.input_dim), dtype = np.complex)
+		for lam, rho in zip(self._poles, self._residues):
+			Hz += 	np.einsum('i, jk->ijk', 1./(z-lam), rho)
+		return Hz			
 
 	@property
 	def A(self):
