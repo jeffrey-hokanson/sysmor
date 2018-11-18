@@ -5,9 +5,6 @@ from numpy.polynomial.legendre import legvander, legroots
 from lagrange import LagrangePolynomial
 
 
-#TODO: There seem to be some bugs present in the _transform, _inverse_transform pair
-# perhaps I should remove these
- 
 class RationalFit:
 	"""An abstract base class for rational approximation algorithms
 
