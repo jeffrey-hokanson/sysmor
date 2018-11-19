@@ -324,9 +324,16 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			# Don't allow interpolation points to be too far outside of the current interpolation points mu
 			# We change lam both for generating new interpolation points
 			# as well as ensuring subsequent iterations 
+		
+			# Pick only those points inside the domain
+			#I = (lam< -np.min(mu.real)) & (lam>-np.max(mu.real)) & (lam.imag < np.max(-mu.imag)) & (lam.imag > np.min(-mu.imag))
+			#lam_can = lam[I]
+			#print lam_can
+			#if len(lam_can) == 0:
 			lam_real = np.maximum(-2*np.max(mu.real), np.minimum(-0.5*np.min(mu.real),lam.real))
 			lam_imag = np.maximum(2*np.min(mu.imag), np.minimum(2*np.max(mu.imag), lam.imag))
-			lam_can = lam_real+1j*lam_imag +1e-7*1j*np.abs(lam_imag)*np.random.randn(*lam_imag.shape) 
+			lam_can = lam_real+1j*lam_imag +1e-7*1j*np.abs(lam_imag)*np.random.randn(*lam_imag.shape)
+ 
 			# If all poles are on the boundary, randomly sample from the interior of mu	
 			#if len(lam_can) == 0:
 				# Pick a random point in the convex hull of existing samples
@@ -341,6 +348,11 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			max_angles = np.zeros(len(lam_can))
 			for i in range(len(lam_can)):
 				max_angles[i] = np.max(subspace_angle_V_M(mu, lam[i], L = L, d = d, p = p))
+				VV_angle = subspace_angle_V_V(mu, -lam[i].conj(), L = L, d = d, p = p)
+				print("%2d: max angle %6.2f, VV: %6.2f" % (i, 
+					max_angles[i]*180/np.pi, 
+					VV_angle*180/np.pi, ))
+			
 			#	max_angle_mp = np.max(subspace_angle_V_M_mp(mu, lam[i]))
 			#	print("%2d: max angle %6.2f, MP: %6.2f: err %5.2e" % (i, 
 			#		max_angles[i]*180/np.pi, 
