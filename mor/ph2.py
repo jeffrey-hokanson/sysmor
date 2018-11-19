@@ -212,7 +212,8 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 		If True, fit a real dynamical system; if False, fi a complex dynamical system
 
 	"""
-	def __init__(self, rom_dim, real = True, maxiter = 1000, verbose = False, ftol = 1e-5, cond_max= 1e20, print_norm = False):
+	def __init__(self, rom_dim, real = True, maxiter = 1000, verbose = False, ftol = 1e-5, 
+		cond_max= 1e14, cond_growth = 5, mu_growth = 10, print_norm = False):
 		H2MOR.__init__(self, rom_dim, real = real)
 		self.maxiter = maxiter
 		self.verbose = verbose
@@ -220,6 +221,9 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 		self.cond_max = cond_max
 		self.over_determine = 2
 		self.print_norm = print_norm
+		self.cond_growth = cond_growth
+		self.mu_growth = mu_growth
+
 
 	def _mu_init(self, H):
 		if isinstance(H, StateSpaceSystem):
@@ -280,17 +284,27 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			H_mu = H_mu.reshape(n,)		
 	
 			# Compute the weight matrix
-			L,d,p = cauchy_ldl(mu) 
+			L,d,p = cauchy_ldl(mu)
+
+			# Compute the condition number
+			U,s,VH = cauchy_hermitian_svd(mu, L = L, d = d, p = p)
+			cond_M = np.max(s)/np.min(s)
+			
 			M = lambda x: cholesky_inv(x, L, d, p)
 			#Linv = M(np.eye(len(mu)))
+		
 			H_norm_est = np.linalg.norm(M(H_mu))
+		
+			###################################################################
 			# Find rational approximation (inner loop)
+			###################################################################
+			
 			# Default (AAA) initialization
 			Hr1.fit(mu, H_mu, W = M)
 			res_norm1 = Hr1.residual_norm()
 
+			# Initialization based on previous poles
 			if (lam_old is not None) and len(lam_old) == Hr2.n:
-				# Initialization based on previous poles
 				Hr2.fit(mu, H_mu, W = M, lam0 = lam_old)
 				res_norm2 = Hr2.residual_norm()
 				# Set the reduced order model to be the smaller of the two
@@ -302,77 +316,72 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 				Hr = Hr1
 				res_norm2 = np.inf
 
-			active_mask = np.abs(Hr._res.active_mask)
-		
+			# Convert into a pole-residue representation
 			lam, rho = Hr.pole_residue()	
 			Hr = PoleResidueSystem(lam, rho)	
 
-			# Poles for which constraints were not active
-#			if self.real: 
-#				# Due to pairwise
-#				mask = np.zeros(active_mask.shape)
-#				mask[0:2*(rom_dim//2):2] =  active_mask[:2*(rom_dim//2):2] + active_mask[1:2*(rom_dim//2):2]
-#				mask[1:2*(rom_dim//2):2] =  active_mask[:2*(rom_dim//2):2] + active_mask[1:2*(rom_dim//2):2]
-#				if rom_dim % 2 == 1:
-#					mask[-1] = active_mask[-1]
-#				print mask
-#				lam_can = lam[ mask == 0]
-#			else:
-#				# only those lam for which the constraints aren't active
-#				lam_can = lam[ (active_mask[::2] + active_mask[1::2]) == 0]
+			###################################################################
+			# Append new sample mu
+			###################################################################
 
-			# Don't allow interpolation points to be too far outside of the current interpolation points mu
-			# We change lam both for generating new interpolation points
-			# as well as ensuring subsequent iterations 
-			lam_real = np.maximum(-2*np.max(mu.real), np.minimum(-0.5*np.min(mu.real),lam.real))
-			lam_imag = np.maximum(2*np.min(mu.imag), np.minimum(2*np.max(mu.imag), lam.imag))
-			#lam_can = lam_real+1j*lam_imag +1e-7*1j*np.abs(lam_imag)*np.random.randn(*lam_imag.shape) 
-			# If all poles are on the boundary, randomly sample from the interior of mu	
-			#if len(lam_can) == 0:
-				# Pick a random point in the convex hull of existing samples
-				#alpha = np.random.uniform(0,1,len(mu))
-				#alpha /= np.sum(alpha)
-				#lam_can = -np.array([ np.dot(alpha, mu)])
-			#	real_part = np.min(mu.real)
-			#	lam_can = -real_part +1j*lam.imag
+			# Construct candidates projected onto interior of nearby mu-constrained box
+			lam_real = np.maximum(-self.mu_growth*np.max(mu.real)*np.ones(lam.shape), lam.real)
+			lam_real = np.minimum(-(1./self.mu_growth)*np.min(mu.real)*np.ones(lam.shape), lam_real)
+			lam_imag = np.maximum(self.mu_growth*np.min(mu.imag), np.minimum(self.mu_growth*np.max(mu.imag), lam.imag))
+			lam_can = lam_real + 1j*lam_imag
 
-
+			if self.real:
+				lam_can = lam_can[lam_can.imag >= 0]
+			
 			# Find the largest subspace angle 
 			max_angles = np.zeros(len(lam_can))
+			new_conds = np.zeros(len(lam_can))
 			for i in range(len(lam_can)):
 				max_angles[i] = np.max(subspace_angle_V_M(mu, lam_can[i], L = L, d = d, p = p))
-				#new_cond = 
-				#max_angle_mp = np.max(subspace_angle_V_M_mp(mu, lam_can[i]))
-				#print("%2d: max angle %6.2f, MP: %6.2f: err %5.2e" % (i, 
-				#	max_angles[i]*180/np.pi, 
-				#	max_angle_mp*180/np.pi, 
-				#	180/np.pi*np.abs(max_angle_mp - max_angles[i])))
-				#I = np.argsort(np.abs(-lam_can[i].conj() - mu))
-				#max_angles[i] = np.max(subspace_angle_V_M(mu[I[0:6]], lam[i]))
-				
-				#max_angles[i] = np.max(subspace_angle_V_M_mp(mu, lam[i]))
-				#max_angles[i] = np.max(subspace_angle_V_V(mu, -lam_can[i].conj(), L = L, d = d, p = p))
-				
+				if self.real and lam_can[i].imag !=0:
+					mu_new = np.hstack([ mu, -lam_can[i].conj(), -lam_can[i] ])
+				else:
+					mu_new = np.hstack([ mu, -lam_can[i].conj() ])
 
+				_, snew, _ = cauchy_hermitian_svd(mu_new)
+				new_conds[i] = (snew[0]/snew[-1])
+		
+	
 			# Append existing mu
-			i = np.nanargmax(max_angles)
-			max_angle = max_angles[i]
-			mu_star = -lam_can[i].conj()
+			if np.min(new_conds) > self.cond_growth*cond_M:
+				k = np.nanargmin(new_conds)
+			else:
+				k = np.nanargmax(max_angles - 100*(new_conds > self.cond_growth*cond_M) )
+			max_angle = np.nanmax(max_angles)
+			mu_star = -lam_can[k].conj()
+			
+			for i in range(len(lam_can)):
+				line = "angle %6.2f ; cond %6.2e ; mu %5.2e %+5.2e" %( 180/np.pi*max_angles[i], new_conds[i], -lam_can[i].real, lam_can[i].imag)
+				if new_conds[i] > self.cond_growth*cond_M:
+					line += ' X '
+				else:
+					line += '   '
+
+				if i == k:
+					line += " <=== "
+				else:
+					line += "      "
+			
+				print(line)
 
 			# Ensure in strict RHP
-			mu_star = max(mu_star.real, 1e-10) + 1j*mu_star.imag
-			if self.real and (mu_star.imag !=0):
-				mu_star = mu_star.real + 1j*np.abs(mu_star.imag)	
+			#mu_star = max(mu_star.real, 1e-10) + 1j*mu_star.imag
+			#if self.real and (mu_star.imag !=0):
+			#	mu_star = mu_star.real + 1j*np.abs(mu_star.imag)	
 			
+			###################################################################
 			# Evalute termination conditions
+			###################################################################
 			delta_Hr = (Hr - Hr_old).norm()/Hr.norm()
 	
-			# Compute the condition number
-			#sigma = svdvals(np.diag(d**(0.5)).dot(L))
-			U,s,VH = cauchy_hermitian_svd(mu, L = L, d = d, p = p)
-			cond_M = np.max(s)/np.min(s)
-	
+			###################################################################
 			# Print Logging messages
+			###################################################################
 			if self.verbose:
 				# Header
 				if it == 0:
@@ -424,7 +433,7 @@ if __name__ == '__main__':
 	H = build_cdplayer()
 	# Extract the 1/2 block
 	H = H[0,1]
-	Hr = ProjectedH2MOR(16, maxiter = 100, verbose = True, cond_max = 1e14, ftol = 1e-7, print_norm = True)
+	Hr = ProjectedH2MOR(30, maxiter = 100, verbose = True, cond_max = 1e15, ftol = 1e-6, print_norm = True)
 	Hr.fit(H)	
 	
 	print("Relative H2 Norm: %12.10f" % ( (H-Hr).norm()/H.norm()))	

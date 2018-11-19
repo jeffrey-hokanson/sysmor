@@ -60,13 +60,26 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 
 
 	"""
-	def __init__(self, m, n, field = 'complex', stable = False, init = 'aaa', stable_margin = 1e-6, **kwargs):
+	def __init__(self, m, n, field = 'complex', stable = False, init = 'aaa', stable_margin = 1e-5, **kwargs):
 
 		assert m + 1 >= n, "Pole-residue parameterization requires m + 1 >= n" 
 		OptimizationRationalFit.__init__(self, m, n, field = field, stable = stable, init = init, **kwargs)
 		self.stable_margin = stable_margin	
 
 	def _call(self, z):
+#		b = self.b
+#		zt = self._transform(self.z)
+#		Psi = np.vstack([zt, np.ones(zt.shape)]).T	
+#		zt2 = zt**2
+#		Theta = [ (Psi.T/(zt2 + np.dot(Psi, b[2*k:2*k+2] ))).T for k in range(self.n//2)]
+#		if self.n % 2 == 1:
+#			Theta.append( 1./(zt + b[-1]).reshape(-1,1))
+#	
+#		if self.m - self.n >= 0:
+#			Omega = np.hstack(Theta + [self._legendre_vandmat(self.m - self.n, self.z)])
+# 		else:
+#			Omega = np.hstack(Theta)
+		
 		V = self.vandmat(self.lam, z)
 		return np.dot(V, self.rho_c)
 
@@ -347,43 +360,54 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 			# Working through the quadratic formula,
 			# [ -b +/- sqrt(b^2 - 4c) ]/2
 			# has roots in the LHP if b, c are in the positive orthant
-			lb = (self.stable_margin/(self._max_real - self._min_real)  )*np.ones(b0.shape)
+			lb = np.zeros(b0.shape)
+			#lb = (self.stable_margin/(self._max_real - self._min_real)  )*np.ones(b0.shape)
 			ub = np.inf*np.ones(b0.shape)
-			#ub[0::2] = -1e1*self._min_real
 			bounds = (lb, ub)
 			# Enforce that b0 statisfies the constraints
 			b0 = np.maximum(b0, lb)
 		else:
-			bounds = (-np.inf, np.inf)	
+			bounds = (-np.inf, np.inf)
+	
 		# Solve the optimization problem 	
 		self._res = res = least_squares(res, b0, jac, bounds = bounds, x_scale = 'jac', **self.kwargs)
 		b = res.x
 		#b, info = gn(f=res, F=jac, x0=b0, **self.kwargs)
 
+		if self.stable:
+			lam = self._b2lam(b)				
+			# Force into strict LHP
+			for i in range(self.n // 2):
+				if (lam[2*i+1].real == 0) or (lam[2*i+1].real == 0):
+					b[2*i] += 1e-7
+			if self.n % 2 == 0:
+				if lam[-1].real == 0:
+					b[-1] += 1e-7	
+		
 		# Compute residues
 		r, a = self.residual_jacobian_real(b, jacobian = False, return_real = True)
-		lam = self._b2lam(b) 
-		
-		if self.stable:
-			assert np.all(lam.real < 0), "Stability constraint failed"
+		lam = self._b2lam(b)
+
 		self.b = b
 		self.lam = lam
-		rho = np.zeros(self.n, dtype = np.complex)
+		
+		
 		# Now compute residues
-		i = 0
-		if self.n % 2 == 1:
-			rho[i] = a[0]
-			i += 1
-		while i < self.n:
-			lamt = self._transform(lam[i])
-			# Compute derivative for chain rule use
-			# since linear, we can simply use this formula
-			scale = (1./(self._transform(1) - self._transform(0))).real
-			rho[i] = scale * (a[i]*lamt + a[i+1])/(2*lamt + b[i])
-			lamt = self._transform(lam[i+1])
-			rho[i+1] = scale * (a[i]*lamt + a[i+1])/(2*lamt + b[i])
-			i += 2
+		#---------------------
 
+		# Compute the scaling coefficient
+		scale = (1./(self._transform(1) - self._transform(0))).real
+		rho = np.zeros(self.n, dtype = np.complex)
+		for i in range(self.n // 2):
+			lamt1 = self._transform(lam[2*i])
+			lamt2 = self._transform(lam[2*i+1])
+			
+			rho[2*i] = scale * (a[2*i]*lamt1 + a[2*i+1])/(lamt1 - lamt2)
+			rho[2*i+1] = scale* (-a[2*i]*lamt2 - a[2*i+1])/(lamt1 - lamt2)
+		
+		if self.n % 2 == 1:
+			rho[-1] = a[0]
+		
 		self.b = b
 		self.rho = rho
 		self.c = a[self.n:]
