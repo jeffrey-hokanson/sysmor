@@ -1,3 +1,5 @@
 numpy
 scipy
 matplotlib<=2.2.3
+funtools32
+mpmath

@@ -6,6 +6,8 @@ from h2mor import H2MOR
 from pffit import PartialFractionRationalFit
 from cauchy import cauchy_ldl, cauchy_hermitian_svd 
 from marriage import marriage_sort
+from subspace import subspace_angle_V_M_mp
+
 
 def subspace_angle_V_M(mu, lam, L = None, d = None, p = None):
 	"""Compute the subspace angles between V and M
@@ -210,13 +212,14 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 		If True, fit a real dynamical system; if False, fi a complex dynamical system
 
 	"""
-	def __init__(self, rom_dim, real = True, maxiter = 1000, verbose = False, ftol = 1e-5, cond_max= 1e20):
+	def __init__(self, rom_dim, real = True, maxiter = 1000, verbose = False, ftol = 1e-5, cond_max= 1e20, print_norm = False):
 		H2MOR.__init__(self, rom_dim, real = real)
 		self.maxiter = maxiter
 		self.verbose = verbose
 		self.ftol = ftol
 		self.cond_max = cond_max
 		self.over_determine = 2
+		self.print_norm = print_norm
 
 	def _mu_init(self, H):
 		if isinstance(H, StateSpaceSystem):
@@ -228,7 +231,8 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 
 			# TODO: Why does using 2r+2 work better than using a recursive initialization
 			# that only uses 6? 
-			mu0 = mu_real + 1j*np.linspace(mu_imag[0], mu_imag[1], 2*self.rom_dim + 2)
+			#mu0 = mu_real + 1j*np.linspace(mu_imag[0], mu_imag[1], 2*self.rom_dim + 2)
+			mu0 = mu_real + 1j*np.linspace(mu_imag[0], mu_imag[1], 6)
 			if self.real:
 				I = marriage_sort(mu0, mu0.conjugate())
 				mu0 = 0.5*(mu0 + mu0[I].conjugate())
@@ -337,6 +341,15 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			max_angles = np.zeros(len(lam_can))
 			for i in range(len(lam_can)):
 				max_angles[i] = np.max(subspace_angle_V_M(mu, lam[i], L = L, d = d, p = p))
+				max_angle_mp = np.max(subspace_angle_V_M_mp(mu, lam[i]))
+				print("%2d: max angle %6.2f, MP: %6.2f: err %5.2e" % (i, 
+					max_angles[i]*180/np.pi, 
+					max_angle_mp*180/np.pi, 
+					180/np.pi*np.abs(max_angle_mp - max_angles[i])))
+				#I = np.argsort(np.abs(-lam_can[i].conj() - mu))
+				#max_angles[i] = np.max(subspace_angle_V_M(mu[I[0:6]], lam[i]))
+				
+				#max_angles[i] = np.max(subspace_angle_V_M_mp(mu, lam[i]))
 				#max_angles[i] = np.max(subspace_angle_V_V(mu, -lam_can[i].conj(), L = L, d = d, p = p))
 				
 
@@ -362,9 +375,14 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			if self.verbose:
 				# Header
 				if it == 0:
-					print("  it | dim | FOM Evals | delta Hr |  cond M  |       mu star      | res norm | max angle |  init  |")
-					print("-----|-----|-----------|----------|----------|--------------------|----------|-----------|--------|")
-		
+					head1 = "  it | dim | FOM Evals | delta Hr |  cond M  |       mu star      | res norm | max angle |  init  |"
+					head2 = "-----|-----|-----------|----------|----------|--------------------|----------|-----------|--------|"
+					if self.print_norm:
+						head1 += ' Error H2 Norm |'
+						head2 += '---------------|'
+					print(head1)
+					print(head2)
+	
 				if np.abs(res_norm1 - res_norm2) < 1e-6:
 					init = 'either'
 				elif res_norm1 < res_norm2:
@@ -372,9 +390,14 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 				else:
 					init = 'lam'
 				res_norm = min(res_norm1, res_norm2)	
-				print("%4d | %3d |   %7d | %8.2e | %8.2e | %8.2e%+8.2ei | %8.2e | %9.6f | %6s | %12.6e" % 
+				iter_message = "%4d | %3d |   %7d | %8.2e | %8.2e | %8.2e%+8.2ei | %8.2e | %9.6f | %6s |" % \
 					(it,rom_dim, self._total_fom_evals, delta_Hr, cond_M, mu_star.real, mu_star.imag,
-					res_norm/H_norm_est, 180*max_angle/np.pi, init, (H-Hr).norm()/H.norm() ) )
+					res_norm/H_norm_est, 180*max_angle/np.pi, init )
+
+				if self.print_norm:
+					iter_message += ' %13.6e |' % ( (H-Hr).norm()/H.norm())
+
+				print(iter_message)
 
 			# Break if termination conditions are met
 			if rom_dim == self.rom_dim:
@@ -396,10 +419,11 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 
 if __name__ == '__main__':
 	from demos import build_cdplayer
+
 	H = build_cdplayer()
 	# Extract the 1/2 block
 	H = H[0,1]
-	Hr = ProjectedH2MOR(30, maxiter = 100, verbose = True, cond_max = 1e15, ftol = 1e-7)
+	Hr = ProjectedH2MOR(16, maxiter = 100, verbose = True, cond_max = 1e14, ftol = 1e-7, print_norm = True)
 	Hr.fit(H)	
 	
 	print("Relative H2 Norm: %12.10f" % ( (H-Hr).norm()/H.norm()))	
