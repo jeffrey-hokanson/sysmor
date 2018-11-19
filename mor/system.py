@@ -464,10 +464,10 @@ class StateSpaceSystem(LTISystem):
 		
 		I = eye(self.A.shape[0])
 		for i in range(n):
-			x = solve(I*z - self.A, self.B)
+			x = solve(I*z[i] - self.A, self.B)
 			Hz[i,:,:] = np.dot(self.C, x)
 			if der:
-				IA = z * I - self.A
+				IA = z[i] * I - self.A
 				x_der = solve(IA, x)
 				Hpz[i,:,:] = np.dot(-self.C, x_der)
 
