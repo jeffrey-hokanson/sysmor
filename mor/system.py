@@ -188,8 +188,11 @@ class LTISystem(object):
 		norm2 += (np.sum(np.abs(lim_zH1)**2) + np.sum(np.abs(lim_zH2)**2))/(4*L*(n+1))
 
 		# Take the square root to return the actual norm
-		norm = np.sqrt(norm2)
-		return norm
+		if norm2 >= 0:
+			norm = np.sqrt(norm2)
+			return norm
+		else:
+			return np.nan
 
 
 class ComboSystem(LTISystem):

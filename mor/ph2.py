@@ -326,7 +326,7 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			# as well as ensuring subsequent iterations 
 			lam_real = np.maximum(-2*np.max(mu.real), np.minimum(-0.5*np.min(mu.real),lam.real))
 			lam_imag = np.maximum(2*np.min(mu.imag), np.minimum(2*np.max(mu.imag), lam.imag))
-			lam_can = lam_real+1j*lam_imag +1e-7*1j*np.abs(lam_imag)*np.random.randn(*lam_imag.shape) 
+			#lam_can = lam_real+1j*lam_imag +1e-7*1j*np.abs(lam_imag)*np.random.randn(*lam_imag.shape) 
 			# If all poles are on the boundary, randomly sample from the interior of mu	
 			#if len(lam_can) == 0:
 				# Pick a random point in the convex hull of existing samples
@@ -340,12 +340,13 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			# Find the largest subspace angle 
 			max_angles = np.zeros(len(lam_can))
 			for i in range(len(lam_can)):
-				max_angles[i] = np.max(subspace_angle_V_M(mu, lam[i], L = L, d = d, p = p))
-			#	max_angle_mp = np.max(subspace_angle_V_M_mp(mu, lam[i]))
-			#	print("%2d: max angle %6.2f, MP: %6.2f: err %5.2e" % (i, 
-			#		max_angles[i]*180/np.pi, 
-			#		max_angle_mp*180/np.pi, 
-			#		180/np.pi*np.abs(max_angle_mp - max_angles[i])))
+				max_angles[i] = np.max(subspace_angle_V_M(mu, lam_can[i], L = L, d = d, p = p))
+				#new_cond = 
+				#max_angle_mp = np.max(subspace_angle_V_M_mp(mu, lam_can[i]))
+				#print("%2d: max angle %6.2f, MP: %6.2f: err %5.2e" % (i, 
+				#	max_angles[i]*180/np.pi, 
+				#	max_angle_mp*180/np.pi, 
+				#	180/np.pi*np.abs(max_angle_mp - max_angles[i])))
 				#I = np.argsort(np.abs(-lam_can[i].conj() - mu))
 				#max_angles[i] = np.max(subspace_angle_V_M(mu[I[0:6]], lam[i]))
 				

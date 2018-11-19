@@ -71,7 +71,7 @@ def test_cholesky_inv_norm(n = 50):
 	print norm_L2**2 
 	assert np.abs(norm_L - norm_L2)/norm_L <1e-14
 
-def test_cauchy_hermitian_svd(n = 2):
+def test_cauchy_hermitian_svd(n = 10):
 	np.random.seed(1)
 	mu = np.random.uniform(0.1, 1,size = (n,)) + 1j*np.random.uniform(-10,10, size = (n,))
 
@@ -79,11 +79,9 @@ def test_cauchy_hermitian_svd(n = 2):
 
 	U, s, VH = cauchy_hermitian_svd(mu)
 
-	print M
-	print U.dot(np.diag(s).dot(VH))
-
-	print np.linalg.norm(M - U.dot(np.diag(s).dot(VH)), np.inf) 
-	# Put in test
+	err = np.linalg.norm(M - U.dot(np.diag(s).dot(VH)), np.inf)
+	print "error", err
+	assert err < 1e-10
 
 if __name__ == '__main__':
-	test_cholesky_inv_norm()
+	test_cauchy_hermitian_svd()

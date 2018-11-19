@@ -87,14 +87,21 @@ def cauchy_hermitian_svd(mu, L = None, d = None, p = None):
 	r""" Computes the singular value decomposition of a Hermitian Cauchy matrix
 	"""
 
+	n = len(mu)
+	mu = np.array(mu)
+
 	if (L is None) or (d is None) or (p is None):
 		L, d, p = cauchy_ldl(mu)
 
+	M = 1./(np.tile(mu.reshape(n,1), (1,n)) + np.tile(mu.conj().reshape(1,n), (n,1)))
+	
 	# Change to match notation in Dem00, Alg. 3 (end)
 	P = np.eye(len(mu))[p]
 	D = np.diag(d)
 	X = L
-	Y = L.conj().T
+	YH = L.conj().T
+
+	M2 = P.T.dot(X.dot(D.dot(YH).dot(P)))
 
 	# STEP 1: compte X*D*Pinv = Q*R
 	[Q,R,p1] = scipy.linalg.qr(X.dot(D), pivoting = True, mode = 'economic')
@@ -102,7 +109,7 @@ def cauchy_hermitian_svd(mu, L = None, d = None, p = None):
 	
 	# STEP 2: W = R*P*Y'
 	# We pivot the rows 
-	W = np.dot(R, Y.conj().T[p1,:])
+	W = np.dot(R, YH[p1,:])
 	
 	# STEP 3: compute svd of W
 	[Ubar,s,VH] = np.linalg.svd(W, full_matrices = False, compute_uv = True)
