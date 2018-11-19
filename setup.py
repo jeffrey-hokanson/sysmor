@@ -12,6 +12,6 @@ setup(name='mor',
 		'scipy', 
 		'matplotlib<=2.2.3',
 		'mpmath',
-		'funtools32',
+		'functools32',
 		],
 	)
