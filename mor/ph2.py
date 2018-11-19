@@ -328,10 +328,16 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			lam_real = np.maximum(-self.mu_growth*np.max(mu.real)*np.ones(lam.shape), lam.real)
 			lam_real = np.minimum(-(1./self.mu_growth)*np.min(mu.real)*np.ones(lam.shape), lam_real)
 			lam_imag = np.maximum(self.mu_growth*np.min(mu.imag), np.minimum(self.mu_growth*np.max(mu.imag), lam.imag))
-			lam_can = lam_real + 1j*lam_imag
+			lam_proj = lam_real + 1j*lam_imag
 
+			# copy over the projected poles so the initialization is reasonable
+			lam = lam_proj
+
+			# Only consider positive imaginary part if we are going to include the conjugate automatically
 			if self.real:
-				lam_can = lam_can[lam_can.imag >= 0]
+				lam_can = lam_proj[lam_proj.imag >= 0]
+			else:
+				lam_can = lam_proj
 			
 			# Find the largest subspace angle 
 			max_angles = np.zeros(len(lam_can))
@@ -354,30 +360,28 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 				k = np.nanargmax(max_angles - 100*(new_conds > self.cond_growth*cond_M) )
 			max_angle = np.nanmax(max_angles)
 			mu_star = -lam_can[k].conj()
-			
-			for i in range(len(lam_can)):
-				line = "angle %6.2f ; cond %6.2e ; mu %5.2e %+5.2e" %( 180/np.pi*max_angles[i], new_conds[i], -lam_can[i].real, lam_can[i].imag)
-				if new_conds[i] > self.cond_growth*cond_M:
-					line += ' X '
-				else:
-					line += '   '
+		
+			if self.verbose > 10:	
+				for i in range(len(lam_can)):
+					line = "angle %6.2f ; cond %6.2e ; mu %5.2e %+5.2e" %( 180/np.pi*max_angles[i], new_conds[i], -lam_can[i].real, lam_can[i].imag)
+					if new_conds[i] > self.cond_growth*cond_M:
+						line += ' X '
+					else:
+						line += '   '
 
-				if i == k:
-					line += " <=== "
-				else:
-					line += "      "
-			
-				print(line)
+					if i == k:
+						line += " <=== "
+					else:
+						line += "      "
+				
+					print(line)
 
-			# Ensure in strict RHP
-			#mu_star = max(mu_star.real, 1e-10) + 1j*mu_star.imag
-			#if self.real and (mu_star.imag !=0):
-			#	mu_star = mu_star.real + 1j*np.abs(mu_star.imag)	
 			
 			###################################################################
 			# Evalute termination conditions
 			###################################################################
-			delta_Hr = (Hr - Hr_old).norm()/Hr.norm()
+			Hr_norm = Hr.norm()
+			delta_Hr = (Hr - Hr_old).norm()/Hr_norm
 	
 			###################################################################
 			# Print Logging messages
@@ -408,16 +412,28 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 					iter_message += ' %13.6e |' % ( (H-Hr).norm()/H.norm())
 
 				print(iter_message)
+			
+			# Copy logging information
+			if self.history is not None:
+				# TODO: Do we need to copy Hr? I don't think so since there is no way to edit it in place
+				self.history.append({
+					'mu': np.copy(mu), 
+					'Hr': Hr, 
+					'total_fom_evals': self._total_fom_evals,
+					'total_fom_der_evals': self._total_fom_der_evals,
+					'total_lin_solve': 0,
+				})
+
 
 			# Break if termination conditions are met
 			if rom_dim == self.rom_dim:
+				if delta_Hr < self.ftol/Hr_norm:
+					if self.verbose:
+						print("Stopped due to small movement of Hr")
+					break
 				if cond_M > self.cond_max:
 					if self.verbose:
 						print("Stopped due to large condition number of M")
-					break
-				if delta_Hr < self.ftol:
-					if self.verbose:
-						print("Stopped due to small movement of Hr")
 					break
 		
 			mu = np.hstack([mu, mu_star])

@@ -88,9 +88,8 @@ class H2MOR:
 					self._total_fom_evals += 1
 				else:
 					H_mu[i] = H.transfer(mu[i])
-				
-				self._H_mu[mu[i]] = np.copy(H_mu[i])
-				self._total_fom_evals += 1
+					self._H_mu[mu[i]] = np.copy(H_mu[i])
+					self._total_fom_evals += 1
 		if der:
 			return H_mu, H_mu_der
 		else:
