@@ -83,8 +83,7 @@ def test_cauchy_hermitian_svd(n = 2):
 	print U.dot(np.diag(s).dot(VH))
 
 	print np.linalg.norm(M - U.dot(np.diag(s).dot(VH)), np.inf) 
-	assert False
-
+	# Put in test
 
 if __name__ == '__main__':
 	test_cholesky_inv_norm()

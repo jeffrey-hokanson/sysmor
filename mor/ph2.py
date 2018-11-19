@@ -341,11 +341,11 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			max_angles = np.zeros(len(lam_can))
 			for i in range(len(lam_can)):
 				max_angles[i] = np.max(subspace_angle_V_M(mu, lam[i], L = L, d = d, p = p))
-				max_angle_mp = np.max(subspace_angle_V_M_mp(mu, lam[i]))
-				print("%2d: max angle %6.2f, MP: %6.2f: err %5.2e" % (i, 
-					max_angles[i]*180/np.pi, 
-					max_angle_mp*180/np.pi, 
-					180/np.pi*np.abs(max_angle_mp - max_angles[i])))
+			#	max_angle_mp = np.max(subspace_angle_V_M_mp(mu, lam[i]))
+			#	print("%2d: max angle %6.2f, MP: %6.2f: err %5.2e" % (i, 
+			#		max_angles[i]*180/np.pi, 
+			#		max_angle_mp*180/np.pi, 
+			#		180/np.pi*np.abs(max_angle_mp - max_angles[i])))
 				#I = np.argsort(np.abs(-lam_can[i].conj() - mu))
 				#max_angles[i] = np.max(subspace_angle_V_M(mu[I[0:6]], lam[i]))
 				
