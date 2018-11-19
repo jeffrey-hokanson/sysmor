@@ -10,6 +10,8 @@ setup(name='mor',
 	install_requires = [
 		'numpy', 
 		'scipy', 
-		'matplotlib<=2.2.3'
+		'matplotlib<=2.2.3',
+		'mpmath',
+		'funtools32',
 		],
 	)
