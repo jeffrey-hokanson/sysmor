@@ -1,6 +1,10 @@
 import numpy as np
 from system import TransferSystem, StateSpaceSystem 
+import os 
+
+# Extract the path of this file
 import scipy.io
+dir_path = os.path.dirname(os.path.realpath(__file__))
 
 def build_string(epsilon = 1):
 	""" String equation model damped on half the interval
@@ -62,7 +66,41 @@ def build_cdplayer(sparse = False):
 		A collection of benchmark examples for model reduction of linear time invariant dynamical systems; 
 		SLICOT Working Note 2002-2: February 2002.
 	"""
-	data = scipy.io.loadmat('data/CDPlayer.mat')
+	fname = os.path.join(dir_path, 'data/CDPlayer.mat')
+	data = scipy.io.loadmat(fname)
+	A = data['A']
+	B = data['B']
+	C = data['C']
+
+	if sparse:
+		raise NotImplementedError
+
+	return StateSpaceSystem(A, B, C)
+
+def build_iss(sparse = False):
+	r""" Model of the International Space Station 1r component
+
+	
+	This model of the space station is described in [CD02]_.
+	
+
+	Parameters
+	----------
+	sparse: bool
+		If true, construct a sparse state-space system
+
+	Returns
+	-------
+	StateSpaceSystem or SparseStateSpaceSystem
+
+	References
+	----------
+	.. [CD02] Younes Chahlaoui and Paul Van Dooren.
+		A collection of benchmark examples for model reduction of linear time invariant dynamical systems; 
+		SLICOT Working Note 2002-2: February 2002.
+	"""
+	fname = os.path.join(dir_path, 'data/iss.mat')
+	data = scipy.io.loadmat(fname)
 	A = data['A']
 	B = data['B']
 	C = data['C']

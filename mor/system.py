@@ -1,8 +1,8 @@
 from __future__ import division
-
 import numpy as np
 from lagrange import LagrangePolynomial
 from pgf import PGF
+from warnings import catch_warnings
 
 try:
 	from scipy.linalg import solve_lyapunov
@@ -437,9 +437,15 @@ class StateSpaceSystem(LTISystem):
 		for i in range(self.input_dim):
 			for j in range(self.output_dim):
 				Q = -np.outer(self.B[:,i], self.B[:,i].conjugate())
-				X = solve_lyapunov(self.A, Q)
-
-				norm2 += np.dot(self.C[j,:], np.dot(X, self.C[j,:].conjugate().T))
+				with catch_warnings(RuntimeWarning):
+					try:
+						X = solve_lyapunov(self.A, Q)
+					except RuntimeWarning:
+						return np.nan
+				norm2_term = np.dot(self.C[j,:], np.dot(X, self.C[j,:].conjugate().T))
+				if norm2_term < 0:
+					return np.nan
+				norm2 += norm2_term
 		return np.sqrt(norm2.real)
 
 #	def impulse(self, t):
