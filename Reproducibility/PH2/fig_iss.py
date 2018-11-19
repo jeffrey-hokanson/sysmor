@@ -41,6 +41,18 @@ def run_mor(MOR, rs, prefix, **kwargs):
 		pgf.add('rel_err', rel_err_hist)	
 		pgf.write(prefix + '_%02d.dat' % r)
 
+		# Bode plots
+		z = 1j*np.logspace(-2, 3, 100)
+
+		Hz = H.transfer(z)
+		Hrz = Hr.transfer(z)
+		pgf = PGF()
+		pgf.add('z', z.imag)
+		pgf.add('Hz', np.abs(Hz))
+		pgf.add('Hrz', np.abs(Hrz))
+		pgf.add('diff', np.abs(Hz - Hrz))
+		pgf.write(prefix + '_bode_%02d.dat' % r)
+
 if __name__ == '__main__':
 	rs = np.arange(2,10+2,2)
 	run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2', verbose = True, print_norm = True, cond_growth = 5, ftol = 1e-9)
