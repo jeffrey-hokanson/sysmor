@@ -23,7 +23,7 @@ class QuadVF(H2MOR, PoleResidueSystem):
 	real: bool
 		If true, construct a real reduced order model
 	"""
-	def __init__(self, rom_dim, N, L = 1, real = True, maxiter = 100, verbose = True, btol = 1e-10, ftol = 1e-10):
+	def __init__(self, rom_dim, N, L = 1, real = True, maxiter = 100, verbose = False, btol = 1e-10, ftol = 1e-10):
 		
 		self.rom_dim = rom_dim
 		self.L = np.abs(L)
