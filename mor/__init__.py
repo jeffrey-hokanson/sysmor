@@ -20,6 +20,7 @@ from system import *
 from h2mor import H2MOR
 import ph2
 from ph2 import ProjectedH2MOR, cholesky_inv, cholesky_inv_norm, subspace_angle_V_M
+from irka import IRKA 
 
 # Tutorials
 import demos

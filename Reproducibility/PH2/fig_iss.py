@@ -1,5 +1,5 @@
 import numpy as np
-from mor import ProjectedH2MOR
+from mor import ProjectedH2MOR, IRKA
 from mor.demos import build_iss
 from mor.pgf import PGF
 
@@ -38,7 +38,7 @@ def run_mor(MOR, rs, prefix, **kwargs):
 		pgf.write(prefix+'.dat')
 
 		# Now plot history of this iteration
-		fom_eval_hist = [hist['total_fom_evals'] + hist['total_fom_der_evals'] + hist['total_lin_solve'] for hist in Hr.history]	
+		fom_eval_hist = [hist['total_fom_evals'] + hist['total_fom_der_evals'] + hist['total_linear_solves'] for hist in Hr.history]	
 		rel_err_hist = [ (hist['Hr'] - H).norm()/H_norm for hist in Hr.history]
 		pgf = PGF()
 		pgf.add('fom_evals', fom_eval_hist)
@@ -55,5 +55,7 @@ def run_mor(MOR, rs, prefix, **kwargs):
 		pgf.write(prefix + '_bode_%02d.dat' % r)
 
 if __name__ == '__main__':
+	ftol = 1e-9
 	rs = np.arange(2,50+2,2)
-	run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2', verbose = True, print_norm = True, cond_growth = 5, ftol = 1e-9)
+	#run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2', verbose = True, print_norm = True, cond_growth = 5, ftol = 1e-9)
+	run_mor(IRKA, rs, 'data/fig_iss_irka', verbose = True, print_norm = True, ftol = ftol)
