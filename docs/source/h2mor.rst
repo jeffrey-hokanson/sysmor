@@ -26,7 +26,6 @@ Projected H2
 ============
 
 .. autoclass:: mor.ProjectedH2MOR
-   :members:
 
 
 Utility Functions
@@ -34,4 +33,23 @@ Utility Functions
 .. autofunction:: mor.ph2.cholesky_inv_norm
 
 .. autofunction:: mor.ph2.subspace_angle_V_M
+
+
+IRKA
+====
+
+.. autoclass:: mor.IRKA
+
+.. autofunction:: mor.irka.rational_krylov_approximation
+
+
+TF-IRKA
+=======
+
+.. autoclass:: mor.TFIRKA
+
+.. autofunction:: mor.tfirka.hermite_interpolant
+
+
+
 
