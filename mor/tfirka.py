@@ -72,34 +72,12 @@ class TFIRKA(IRKA):
 		print(iter_message)
  
 
-def test_build_Hermite():
-	#Checks whether H_r(s) is in fact a Hermite interpolant at z
-	H = build_cdplayer()
-	rom = TFIRKA()
-	z = np.array([1+4j, 1-4j, 2+1j, 2-1j], dtype=complex)
-	Ar, Br, Cr, Er = rom.build_Hermite(z, H)
-
-	z = z[2]
-	EA = z * Er - Ar
-	x = np.linalg.solve(EA, Br)
-	Hr_z = np.dot(Cr, x)
-	xp = np.linalg.solve(EA, Er.dot(x))
-	Hpr_z = np.dot(-Cr, xp)
-	H_z, Hp_z = H.transfer_der(z)
-
-	#Should be numerically 0
-	print "|H (z) - Hr (z)| = %1.2e" % np.abs(Hr_z - H_z)[0, 0]
-	print "|H'(z) - Hr'(z)| = %1.2e" % np.abs(Hpr_z - Hp_z)[0, 0]
 
 if __name__ == '__main__':
 	from demos import build_iss
 	H = build_iss()
 	H = H[0,0]
 	
-	r = 6
-	#Bug: Numerical issues arise in the r >= 18 case
-	#Maybe this isn't a bug. It could be a feature of TFIRKA...
 	Hr = TFIRKA(50, maxiter=100)
-	#:mu = np.hstack([1 + 1j * np.arange(1,(r+1)/2), 1 - 1j * np.arange(1,(r+1)/2)])
 	Hr.fit(H)
 	print (H - Hr).norm()/H.norm()
