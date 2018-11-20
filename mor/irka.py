@@ -83,6 +83,13 @@ class IRKA(H2MOR, StateSpaceSystem):
 
 		return mu0
 
+
+	def _fit_iterate(self, H, mu):
+		# Compute new rational interpolant based on shifts mu
+		Hr = rational_krylov_approximation(H, mu)
+		self._total_linear_solves += 2*self.rom_dim
+		return Hr
+
 	def _fit(self, H, mu0 = None):
 		assert isinstance(H, StateSpaceSystem), "IRKA only applies to state-space systems"
 		if mu0 is None:
@@ -97,9 +104,10 @@ class IRKA(H2MOR, StateSpaceSystem):
 			Hr_old = Hr
 			mu_old = np.copy(mu)
 
-			# Compute new rational interpolant based on shifts mu
-			Hr = rational_krylov_approximation(H, mu)
-	
+			# Construct an interpolant given the current estimate of the Meier-Luenberger interpolation points
+			Hr = self._fit_iterate(H, mu) 
+
+
 			# Flip poles into LHP and reconstruct system
 			used_flip = False
 			if self.flipping:
@@ -113,7 +121,6 @@ class IRKA(H2MOR, StateSpaceSystem):
 					Hr = PoleResidueSystem(lam, rho)
 					used_flip = True
 
-			self._total_linear_solves += 2*self.rom_dim
 
 			if self.history is not None:
 				self.history.append({
@@ -135,23 +142,9 @@ class IRKA(H2MOR, StateSpaceSystem):
 			res_norm = (Hr - Hr_old).norm()	
 
 			if self.verbose:
-				if it == 0:
-					head1 = "  it | Lin Solves | delta Hr | delta mu | flipped |"
-					head2 = "-----|------------|----------|----------|---------|"
-					if self.print_norm:
-						head1 += ' Error H2 Norm |'
-						head2 += '---------------|'
-					print(head1)
-					print(head2)
+				self._iter_message(it, res_norm, Hr_norm, delta_mu, used_flip, H, Hr)
 
-				iter_message = "%4d |    %7d | %8.2e | %8.2e | %7s |" % \
-					(it, self._total_linear_solves, res_norm/Hr_norm, delta_mu, used_flip) 
-				
-				if self.print_norm:
-					iter_message += ' %13.6e |' % ( (H-Hr).norm()/H.norm())
-
-				print(iter_message)
-		
+			# Check stopping conditions
 			if res_norm/Hr_norm < self.ftol/Hr_norm:
 				if self.verbose:
 					print("Stopped due to small movement of Hr")
@@ -161,16 +154,34 @@ class IRKA(H2MOR, StateSpaceSystem):
 				if self.verbose:
 					print("Stopped due to small movement of poles")
 				break
-
 	
 		# Copy over ROM to this instance
 		StateSpaceSystem.__init__(self, Hr.A, Hr.B, Hr.C)
+
+	def _iter_message(self, it, res_norm, Hr_norm, delta_mu, used_flip, H, Hr):
+		if it == 0:
+			head1 = "  it | Lin Solves | delta Hr | delta mu | flipped |"
+			head2 = "-----|------------|----------|----------|---------|"
+			if self.print_norm:
+				head1 += ' Error H2 Norm |'
+				head2 += '---------------|'
+			print(head1)
+			print(head2)
+
+		iter_message = "%4d |    %7d | %8.2e | %8.2e | %7s |" % \
+			(it, self._total_linear_solves, res_norm/Hr_norm, delta_mu, used_flip) 
+		
+		if self.print_norm:
+			iter_message += ' %13.6e |' % ( (H-Hr).norm()/H.norm())
+
+		print(iter_message)
+	
 
 if __name__ == '__main__':
 	from demos import build_iss
 	H = build_iss()
 	H = H[0,0]
-	Hr = IRKA(rom_dim = 30, maxiter = 100, ftol = 1e-9)
+	Hr = IRKA(rom_dim = 50, maxiter = 100, ftol = 1e-9)
 	#mu0 = np.array([100 + 100j, 100 - 100j, 200 + 200j, 200 - 200j, 300 + 300j, 300 - 300j], dtype=complex)
 	#Bug: stopping criterion not triggering. mu's are order 1e5 stopping not scaled
 	Hr.fit(H)
