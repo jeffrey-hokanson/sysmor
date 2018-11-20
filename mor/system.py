@@ -567,8 +567,10 @@ class StateSpaceSystem(LTISystem):
 		r""" Compute the poles and residues of this system
 		"""
 		lam, V = scipy.linalg.eig(self.A)
-		B = V.dot(self.B)
-		C = scipy.linalg.solve(V.T, self.C.T).T
+		#B = V.dot(self.B)
+		#C = scipy.linalg.solve(V.T, self.C.T).T
+		B = scipy.linalg.solve(V, self.B)
+		C = self.C.dot(V)
 		rho = np.array([np.outer(B[i,:], C[:,i]) for i in range(len(lam))])
 		return lam, rho
 

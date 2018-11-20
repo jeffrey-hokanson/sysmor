@@ -61,7 +61,7 @@ class IRKA(H2MOR, StateSpaceSystem):
 	xtol: float, optional
 		stopping tolerance
 	"""
-	def __init__(self, rom_dim, real = True, maxiter = 50, flipping = True, verbose = True, ftol = 1e-7, print_norm = True):
+	def __init__(self, rom_dim, real = True, maxiter = 50, flipping = True, verbose = True, ftol = 1e-7, lamtol = 1e-6, print_norm = True):
 		H2MOR.__init__(self, rom_dim, real = real)
 		assert self.real, "Implementation only handles real approximating systems"
 		assert rom_dim % 2 == 0, "Only even recovered systems currently supported"
@@ -69,6 +69,7 @@ class IRKA(H2MOR, StateSpaceSystem):
 		self.flipping = flipping
 		self.verbose = verbose
 		self.ftol = ftol
+		self.lamtol = lamtol
 		self.print_norm = print_norm
 
 	def _mu_init(self, H):
@@ -128,7 +129,6 @@ class IRKA(H2MOR, StateSpaceSystem):
 			# Flip into RHP
 			mu = np.abs(lam.real) + 1j* lam.imag 
 			
-			# TODO: Termination conditions
 			delta_mu = marriage_norm(mu, mu_old)
 		
 			Hr_norm = Hr.norm()
@@ -156,6 +156,11 @@ class IRKA(H2MOR, StateSpaceSystem):
 				if self.verbose:
 					print("Stopped due to small movement of Hr")
 				break
+			
+			if delta_mu < self.lamtol:
+				if self.verbose:
+					print("Stopped due to small movement of poles")
+				break
 
 	
 		# Copy over ROM to this instance
@@ -165,7 +170,7 @@ if __name__ == '__main__':
 	from demos import build_iss
 	H = build_iss()
 	H = H[0,0]
-	Hr = IRKA(rom_dim = 50, maxiter = 100, ftol = 1e-9)
+	Hr = IRKA(rom_dim = 28, maxiter = 100, ftol = 1e-9)
 	#mu0 = np.array([100 + 100j, 100 - 100j, 200 + 200j, 200 - 200j, 300 + 300j, 300 - 300j], dtype=complex)
 	#Bug: stopping criterion not triggering. mu's are order 1e5 stopping not scaled
 	Hr.fit(H)
