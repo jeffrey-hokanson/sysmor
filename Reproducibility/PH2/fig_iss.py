@@ -1,5 +1,5 @@
 import numpy as np
-from mor import ProjectedH2MOR, IRKA
+from mor import ProjectedH2MOR, IRKA, TFIRKA
 from mor.demos import build_iss
 from mor.pgf import PGF
 
@@ -58,4 +58,5 @@ if __name__ == '__main__':
 	ftol = 1e-9
 	rs = np.arange(2,50+2,2)
 	#run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2', verbose = True, print_norm = True, cond_growth = 5, ftol = 1e-9)
-	run_mor(IRKA, rs, 'data/fig_iss_irka', verbose = True, print_norm = True, ftol = ftol)
+	#run_mor(IRKA, rs, 'data/fig_iss_irka', verbose = True, print_norm = True, ftol = ftol)
+	run_mor(TFIRKA, rs, 'data/fig_iss_tfirka', verbose = True, print_norm = True, ftol = ftol)
