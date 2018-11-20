@@ -1,5 +1,5 @@
 import numpy as np
-from mor import ProjectedH2MOR, IRKA
+from mor import ProjectedH2MOR, IRKA, TFIRKA, QuadVF
 from mor.demos import build_iss
 from mor.pgf import PGF
 
@@ -54,8 +54,38 @@ def run_mor(MOR, rs, prefix, **kwargs):
 		pgf.add('diff', np.abs(Hz - Hrz).flatten())
 		pgf.write(prefix + '_bode_%02d.dat' % r)
 
+def run_quadvf(Ns, r, L, prefix,  **kwargs):
+	Ns = np.atleast_1d(Ns)
+	
+	H = build_iss()
+	# Make a SISO system
+	H = H[0,0]
+
+	H_norm = H.norm()
+
+	err = np.zeros(Ns.shape)
+
+	for i, N in enumerate(Ns):
+		Hr = QuadVF(r, N, L, **kwargs)	
+		Hr.fit(H)
+
+		err[i] = (H - Hr).norm()/H_norm
+
+	pgf = PGF()
+	pgf.add('N', Ns)
+	pgf.add('rel_err', err)
+	pgf.write(prefix + '_%02d_L%4.2f.dat' % (r, L))
+
 if __name__ == '__main__':
 	ftol = 1e-9
 	rs = np.arange(2,50+2,2)
 	#run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2', verbose = True, print_norm = True, cond_growth = 5, ftol = 1e-9)
-	run_mor(IRKA, rs, 'data/fig_iss_irka', verbose = True, print_norm = True, ftol = ftol)
+	#run_mor(IRKA, rs, 'data/fig_iss_irka', verbose = True, print_norm = True, ftol = ftol)
+	#run_mor(TFIRKA, rs, 'data/fig_iss_irka', verbose = True, print_norm = True, ftol = ftol)
+
+#	Ns = np.arange(50, 2000, 10)
+#	Ls = [1, 10, 100]
+#	for L in Ls:
+#		run_quadvf(Ns, 28, L, 'data/fig_iss_quadvf')
+	
+
