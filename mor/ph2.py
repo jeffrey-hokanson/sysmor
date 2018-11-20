@@ -421,7 +421,7 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 					'Hr': Hr, 
 					'total_fom_evals': self._total_fom_evals,
 					'total_fom_der_evals': self._total_fom_der_evals,
-					'total_lin_solve': 0,
+					'total_linear_solves': self._total_linear_solves,
 				})
 
 

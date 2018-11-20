@@ -22,7 +22,7 @@ class H2MOR:
 	def _init_logging(self):
 		self._total_fom_evals = 0
 		self._total_fom_der_evals = 0
-		
+		self._total_linear_solves = 0		
 		# Initialize dictionary of existing samples of H
 		self._H_mu = {}
 		self._H_mu_der = {}
@@ -114,3 +114,5 @@ class H2MOR:
 
 		# Call child fit routine
 		self._fit(H, **kwargs)
+
+
