@@ -16,6 +16,8 @@ def rational_krylov_approximation(H, mu):
 	r""" Constructs a rational Krylov approximation
 
 	"""
+	assert isinstance(H, StateSpaceSystem), "IRKA only applies to state-space systems"
+
 	n = H.state_dim
 	r = mu.shape[0]
 
@@ -64,7 +66,7 @@ class IRKA(H2MOR, StateSpaceSystem):
 	def __init__(self, rom_dim, real = True, maxiter = 50, flipping = True, verbose = True, ftol = 1e-7, lamtol = 1e-6, print_norm = True):
 		H2MOR.__init__(self, rom_dim, real = real)
 		assert self.real, "Implementation only handles real approximating systems"
-		assert rom_dim % 2 == 0, "Only even recovered systems currently supported"
+		#assert rom_dim % 2 == 0, "Only even recovered systems currently supported"
 		self.maxiter = maxiter 
 		self.flipping = flipping
 		self.verbose = verbose
@@ -91,7 +93,6 @@ class IRKA(H2MOR, StateSpaceSystem):
 		return Hr
 
 	def _fit(self, H, mu0 = None):
-		assert isinstance(H, StateSpaceSystem), "IRKA only applies to state-space systems"
 		if mu0 is None:
 			mu0 = self._mu_init(H)
 		else:
@@ -182,8 +183,6 @@ if __name__ == '__main__':
 	H = build_iss()
 	H = H[0,0]
 	Hr = IRKA(rom_dim = 50, maxiter = 100, ftol = 1e-9)
-	#mu0 = np.array([100 + 100j, 100 - 100j, 200 + 200j, 200 - 200j, 300 + 300j, 300 - 300j], dtype=complex)
-	#Bug: stopping criterion not triggering. mu's are order 1e5 stopping not scaled
 	Hr.fit(H)
 	print (H - Hr).norm()/H.norm()
 
