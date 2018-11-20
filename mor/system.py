@@ -4,6 +4,8 @@ from lagrange import LagrangePolynomial
 from pgf import PGF
 from warnings import catch_warnings
 
+
+import scipy
 try:
 	from scipy.linalg import solve_lyapunov
 except:
@@ -374,6 +376,7 @@ class StateSpaceSystem(LTISystem):
 		if len(C.shape) == 1:
 			self._C = self._C.reshape(1, -1)
 
+		self._E = np.eye(A.shape[0])
 
 	def __getitem__(self, key):
 		"""Extract a subsystem component-wise
@@ -408,6 +411,10 @@ class StateSpaceSystem(LTISystem):
 		"""
 		return self._C
 
+	@property
+	def E(self):
+		return self._E
+
 
 	@property
 	def state_dim(self):
@@ -428,8 +435,31 @@ class StateSpaceSystem(LTISystem):
 		return [lim_zH, lim_zH]
 
 
-	def norm(self):
+	def solve(self, x, mu, mode = 'N'):
+		r""" Solve the linear system associated with the resolvent
 
+		Given the state-space system, solve the linear system
+
+		.. math::
+
+			(\mathbf{E} \mu - \mathbf{A})^{-1} x
+
+		If the mode is 'T', solve the transpose of this system
+
+		"""
+		assert mode in ['N', 'T'], "Invalid mode provided"
+
+		if mode == 'N':
+			return np.linalg.solve(self.E*mu - self.A, x)
+		elif mode == 'T':
+			return np.linalg.solve(self.E.T*mu - self.A.T, x)
+	
+
+
+
+	def norm(self):
+		r""" Computes the H2 norm
+		"""
 		if self.spectral_abscissa() >= 0:
 			return np.inf
 		# Replace with code that exploits Q is rank-1 and sparse structure for A
@@ -533,7 +563,16 @@ class StateSpaceSystem(LTISystem):
 		else:
 			return np.isrealobj(self.A) & np.all(np.isreal(self.B)) & np.all(np.isreal(self.C)) & np.isrealobj(self.E)
 
-	def poles(self, which = 'LR', k =  1):
+	def pole_residue(self):
+		r""" Compute the poles and residues of this system
+		"""
+		lam, V = scipy.linalg.eig(self.A)
+		B = V.dot(self.B)
+		C = scipy.linalg.solve(V.T, self.C.T).T
+		rho = np.array([np.outer(B[i,:], C[:,i]) for i in range(len(lam))])
+		return lam, rho
+
+	def poles(self, which = 'all', k =  1):
 		r"""Return the poles of the system
 
 		The eigenvalues of :math:`\mathbf{A}` are the poles of the transfer function :math:`H`.
@@ -541,7 +580,7 @@ class StateSpaceSystem(LTISystem):
 
 		Parameters
 		----------
-		which: ['LR']
+		which: ['LR','all']
 			Which eigenvalues to compute 
 
 			* LR: largest real
@@ -552,6 +591,8 @@ class StateSpaceSystem(LTISystem):
 		ew = eig(self.A, left=False, right=False)
 		if which == 'LR':
 			I = np.argsort(-ew.real)
+		elif which == 'all':
+			return ew
 		else:
 			raise NotImplementedError
 		return ew[I[:k]]
@@ -661,9 +702,8 @@ class PoleResidueSystem(SparseStateSpaceSystem):
 
 	@property
 	def C(self):
-		return np.ones((1, len(self.poles)))
+		return np.ones((1, len(self._poles)))
 
-	@property
 	def poles(self):
 		return self._poles
 
