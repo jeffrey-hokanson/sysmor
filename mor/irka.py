@@ -170,7 +170,7 @@ if __name__ == '__main__':
 	from demos import build_iss
 	H = build_iss()
 	H = H[0,0]
-	Hr = IRKA(rom_dim = 28, maxiter = 100, ftol = 1e-9)
+	Hr = IRKA(rom_dim = 30, maxiter = 100, ftol = 1e-9)
 	#mu0 = np.array([100 + 100j, 100 - 100j, 200 + 200j, 200 - 200j, 300 + 300j, 300 - 300j], dtype=complex)
 	#Bug: stopping criterion not triggering. mu's are order 1e5 stopping not scaled
 	Hr.fit(H)

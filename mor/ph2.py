@@ -444,11 +444,11 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 		PoleResidueSystem.__init__(self, lam, rho)
 
 if __name__ == '__main__':
-	from demos import build_cdplayer
+	from demos import build_iss
 
-	H = build_cdplayer()
+	H = build_iss()
 	# Extract the 1/2 block
-	H = H[0,1]
+	H = H[0,0]
 	Hr = ProjectedH2MOR(30, maxiter = 100, verbose = True, cond_max = 1e15, ftol = 1e-6, print_norm = True)
 	Hr.fit(H)	
 	
