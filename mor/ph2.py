@@ -213,7 +213,7 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 
 	"""
 	def __init__(self, rom_dim, real = True, maxiter = 1000, verbose = False, ftol = 1e-5, 
-		cond_max= 1e14, cond_growth = 5, mu_growth = 10, print_norm = False):
+		cond_max= 1e14, cond_growth = 2, mu_growth = 10, print_norm = False):
 		H2MOR.__init__(self, rom_dim, real = real)
 		self.maxiter = maxiter
 		self.verbose = verbose
@@ -449,7 +449,7 @@ if __name__ == '__main__':
 	H = build_iss()
 	# Extract the 1/2 block
 	H = H[0,0]
-	Hr = ProjectedH2MOR(10, maxiter = 100, verbose = True, cond_max = 1e15, ftol = 1e-6, print_norm = True)
+	Hr = ProjectedH2MOR(40, maxiter = 100, verbose = True, cond_max = 1e15, ftol = 1e-9, print_norm = True)
 	Hr.fit(H)	
 	
 	print("Relative H2 Norm: %12.10f" % ( (H-Hr).norm()/H.norm()))	

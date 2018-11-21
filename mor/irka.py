@@ -108,7 +108,6 @@ class IRKA(H2MOR, StateSpaceSystem):
 			# Construct an interpolant given the current estimate of the Meier-Luenberger interpolation points
 			Hr = self._fit_iterate(H, mu) 
 
-
 			# Flip poles into LHP and reconstruct system
 			used_flip = False
 			if self.flipping:
