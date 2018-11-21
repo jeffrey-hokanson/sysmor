@@ -136,7 +136,7 @@ if __name__ == '__main__':
 	from demos import build_iss
 	H = build_iss()
 	H = H[0,0]
-	Hr = QuadVF(rom_dim = 50, N = 5e2, L = 10, maxiter = 100)
+	Hr = QuadVF(rom_dim = 10, N = 1e2, L = 10, maxiter = 100)
 	Hr.fit(H)
 	print (H - Hr).norm()/H.norm()
 

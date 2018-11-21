@@ -449,7 +449,7 @@ if __name__ == '__main__':
 	H = build_iss()
 	# Extract the 1/2 block
 	H = H[0,0]
-	Hr = ProjectedH2MOR(30, maxiter = 100, verbose = True, cond_max = 1e15, ftol = 1e-6, print_norm = True)
+	Hr = ProjectedH2MOR(10, maxiter = 100, verbose = True, cond_max = 1e15, ftol = 1e-6, print_norm = True)
 	Hr.fit(H)	
 	
 	print("Relative H2 Norm: %12.10f" % ( (H-Hr).norm()/H.norm()))	

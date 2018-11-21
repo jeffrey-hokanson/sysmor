@@ -22,7 +22,6 @@ from numpy import eye
 from numpy.linalg import solve
 from copy import deepcopy
 
-import matplotlib.pyplot as plt
 
 __all__ = ['LTISystem', 'ComboSystem', 'StateSpaceSystem', 'SparseStateSpaceSystem', 
 		'TransferSystem', 'PoleResidueSystem', 'ZeroSystem']

@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.linalg import solve_triangular, lstsq, svd
-from opt.gn import gn, BadStep
+#from opt.gn import gn, BadStep
 from ratfit import RationalFit
 from aaa import AAARationalFit
 

@@ -3,7 +3,6 @@ import numpy as np
 from scipy.linalg import solve_triangular, lstsq, svd
 from scipy.optimize import least_squares
 from lagrange import LagrangePolynomial, BarycentricPolynomial
-from opt.gn import BadStep
 from marriage import marriage_sort
 from ratfit import RationalFit
 from optfit import OptimizationRationalFit
@@ -166,8 +165,8 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		JRI[0::2, 1::2] += L.imag
 		JRI[1::2, 0::2] += L.imag
 
-		if not np.all(np.isfinite(JRI)):
-			raise BadStep
+		#if not np.all(np.isfinite(JRI)):
+		#	raise BadStep
 		
 		return r.view(float), -JRI
 
