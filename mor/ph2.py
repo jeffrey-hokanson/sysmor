@@ -212,8 +212,8 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 		If True, fit a real dynamical system; if False, fi a complex dynamical system
 
 	"""
-	def __init__(self, rom_dim, real = True, maxiter = 1000, verbose = False, ftol = 1e-5, 
-		cond_max= 1e14, cond_growth = 2, mu_growth = 10, print_norm = False):
+	def __init__(self, rom_dim, real = True, maxiter = 1000, verbose = False, ftol = 1e-9, 
+		cond_max= 1e15, cond_growth = 2, mu_growth = 10, print_norm = False):
 		H2MOR.__init__(self, rom_dim, real = real)
 		self.maxiter = maxiter
 		self.verbose = verbose

@@ -362,8 +362,9 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 			lb = np.zeros(b0.shape)
 			ub = np.inf*np.ones(b0.shape)
 			bounds = (lb, ub)
-			# NOTE: A poor initialization can yield numerical issues
-			b0 = np.maximum(b0, lb)
+			# If the initialization places on the boundary, 
+			# push slightly into positive orthant
+			b0 = np.maximum(b0, 1e-7*np.ones(b0.shape))
 		else:
 			bounds = (-np.inf, np.inf)
 			
@@ -377,7 +378,9 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 			# Force into strict LHP
 			for i in range(self.n // 2):
 				if (lam[2*i+1].real == 0) or (lam[2*i+1].real == 0):
+					# Push slightly into the positive orthant
 					b[2*i] += 1e-7
+					b[2*i+1] += 1e-7
 			if self.n % 2 == 0:
 				if lam[-1].real == 0:
 					b[-1] += 1e-7	
