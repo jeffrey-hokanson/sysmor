@@ -165,12 +165,13 @@ class LTISystem(object):
 			SIAM J. Sci. Comput. 37 (2015) pp. 2738--2753
 
 		"""
+		assert L> 0, "L=%g must be a positive scalar" % L
 	
 		# Quadrature points
 		z = (1.j*L) / np.tan(np.arange(1, n+1) * np.pi / (n+1))
 		
 		# Quadrature weights; see eq. (3.7) DGB15
-		w = 1./(2*(n+1)*np.sin( np.arange(1,n)*np.pi/(n+1))**2)
+		w = L/(2*(n+1)*np.sin( np.arange(1,n+1)*np.pi/(n+1))**2)
 		
 		# Sample the transfer function
 		# TODO: Exploit real structure if present to reduce calls
@@ -182,15 +183,15 @@ class LTISystem(object):
 
 		# Evalute the sume
 		norm2 = np.sum(Hz_norm2*w)
-
+				
 		# Add the limit points
 		lim_zH1, lim_zH2 = self.lim_zH
-
+		
 		norm2 += (np.sum(np.abs(lim_zH1)**2) + np.sum(np.abs(lim_zH2)**2))/(4*L*(n+1))
-
+		norm2 *= 1./(2*np.pi)	
 		# Take the square root to return the actual norm
 		if norm2 >= 0:
-			norm = np.sqrt(norm2)
+			norm = float(np.sqrt(norm2))
 			return norm
 		else:
 			return np.nan
@@ -305,12 +306,12 @@ class TransferSystem(LTISystem):
 		else:
 			Hz = np.zeros((len(z), self.output_dim, self.input_dim), dtype = np.complex)
 			for i in range(len(z)):
-				Hz[i] = self._scaling*(self._H(z).reshape(self.output_dim, self.input_dim))
+				Hz[i] = self._scaling*(self._H(z[i]).reshape(self.output_dim, self.input_dim))
 			
 			if der:
 				Hzp = np.zeros((len(z), self.output_dim, self.input_dim), dtype = np.complex)
 				for i in range(len(z)):
-					Hpz[i] = self._scaling*(self._Hder(z).reshape(self.output_dim, self.input_dim))
+					Hpz[i] = self._scaling*(self._Hder(z[i]).reshape(self.output_dim, self.input_dim))
 		
 		if der:	
 			return Hz, Hpz
