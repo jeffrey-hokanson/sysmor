@@ -24,7 +24,7 @@ import irka
 from irka import IRKA 
 import tfirka 
 from tfirka import TFIRKA
-
+from quadvf import QuadVF
 
 # Tutorials
 import demos
