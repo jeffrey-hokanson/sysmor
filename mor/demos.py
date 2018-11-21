@@ -40,7 +40,7 @@ def build_string(epsilon = 1):
 	H = lambda z: ( z/2.*np.sinh(z) + 2*np.cosh(z/2) - 3*np.cosh(z/2)**2 + 1)/ (z*(z+epsilon/2)*np.sinh(z) + epsilon*(2*np.cosh(z/2) - 3*np.cosh(z/2)**2 + 1))
 	
 	Hp = lambda z: -2*z*(6*z*np.sinh(z/2)**2 - 2*z*np.sinh(z/2)*np.sinh(z) + z*np.sinh(z)**2 - 4*z*np.cosh(z) + z*np.sinh(2*z)/np.sinh(z/2) - 12*np.sinh(z/2)**2*np.sinh(z) + 8*np.sinh(z)*np.cosh(z/2) - 8*np.sinh(z))/(eps*z*np.sinh(z) - 6*eps*np.sinh(z/2)**2 + 4*eps*np.cosh(z/2) - 4*eps + 2*z**2*np.sinh(z))**2
-	string = TransferSystem(transfer=H, transfer_der=Hp, lim_zH = (0.5,0.5), isreal = True)
+	string = TransferSystem(transfer=H, transfer_der=Hp, lim_zH = (0.5,0.5), isreal = True, vectorized = True)
 	return string
 
 
