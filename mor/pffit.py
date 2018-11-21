@@ -5,7 +5,7 @@ from scipy.optimize import least_squares
 from lagrange import LagrangePolynomial, BarycentricPolynomial
 from marriage import marriage_sort
 from ratfit import RationalFit
-from optfit import OptimizationRationalFit
+from optfit import OptimizationRationalFit, BadStep
 from aaa import AAARationalFit
 from itertools import product
 
@@ -360,14 +360,13 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 			# [ -b +/- sqrt(b^2 - 4c) ]/2
 			# has roots in the LHP if b, c are in the positive orthant
 			lb = np.zeros(b0.shape)
-			#lb = (self.stable_margin/(self._max_real - self._min_real)  )*np.ones(b0.shape)
 			ub = np.inf*np.ones(b0.shape)
 			bounds = (lb, ub)
-			# Enforce that b0 statisfies the constraints
+			# NOTE: A poor initialization can yield numerical issues
 			b0 = np.maximum(b0, lb)
 		else:
 			bounds = (-np.inf, np.inf)
-	
+			
 		# Solve the optimization problem 	
 		self._res = res = least_squares(res, b0, jac, bounds = bounds, x_scale = 'jac', **self.kwargs)
 		b = res.x

@@ -3,6 +3,8 @@ from ratfit import RationalFit
 from aaa import AAARationalFit
 from marriage import marriage_sort
 
+class BadStep(Exception):
+    pass
 
 class OptimizationRationalFit(RationalFit):
 	""" Parent class for optimization based approaches for rational fitting

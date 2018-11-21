@@ -305,13 +305,19 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 
 			# Initialization based on previous poles
 			if (lam_old is not None) and len(lam_old) == Hr2.n:
-				Hr2.fit(mu, H_mu, W = M, lam0 = lam_old)
-				res_norm2 = Hr2.residual_norm()
-				# Set the reduced order model to be the smaller of the two
-				if res_norm2 < res_norm1:
-					Hr = Hr2
-				else:
-					Hr = Hr1
+				try:
+					# Sometimes numerical issues with initialization cause this to 
+					# fail, so we catch these exceptions 
+					Hr2.fit(mu, H_mu, W = M, lam0 = lam_old)
+					res_norm2 = Hr2.residual_norm()
+					# Set the reduced order model to be the smaller of the two
+					if res_norm2 < res_norm1:
+						Hr = Hr2
+					else:
+						Hr = Hr1
+				except np.linalg.linalg.LinAlgError:
+					Hr = H1
+					res_norm2 = np.inf
 			else:
 				Hr = Hr1
 				res_norm2 = np.inf
