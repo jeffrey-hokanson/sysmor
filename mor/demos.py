@@ -44,6 +44,93 @@ def build_string(epsilon = 1):
 	return string
 
 
+def build_beam2():
+	r""" Clamped beam with Kelvin-Voigt damping
+
+	This function implements the clamped beam example from subsection 4.2 of [CM09]_.
+
+	Here we have set all the parameters to one:
+
+	.. math::
+
+		E = I = c_d = L = 1
+	
+
+
+	References
+	----------
+	.. [CM09] Transfer functions of distributed parameter systems: a tutorial,
+		R. Curtain and K. Morris. Automatica 45 (2009), p. 1101-1116
+
+	"""
+	# TODO: Eventually allow all the parameters to be set
+	# TODO: Implement tests of this implementation
+	def H(z):
+		m = (-z**2/(z+1))**(1/4)
+		
+		N = np.cosh(m)*np.sin(m) - np.sinh(m)*np.cos(m)
+		D = 1 + np.cosh(m)*np.cos(m)
+		return (z*N)/( m**3*(1+ z)*D)
+
+	def Hp(z):
+		m = (-z**2/(z+1))**(1/4)
+		mp = m*(0.25*z+0.5)/(z*(z+1))
+	
+		N = np.cosh(m)*np.sin(m) - np.sinh(m)*np.cos(m)
+		Np = 2*np.sin(m)*np.sinh(m)*mp
+		
+		D = 1 + np.cosh(m)*np.cos(m)
+		Dp = -(np.sin(m)*np.cosh(m) - np.cos(m)*np.sinh(m))*mp
+
+		Hp = -3*z*(z+1)*D*N*mp - z*(z+1)*N*m*Dp -z*D*N*m + (z+1)*(z*Np+N)*D*m
+		Hp *= 1./( (z+1)**2 * D**2 * m**4)	
+		return Hp
+
+	# Note we do not define lim_zH as lim_{omega\to\infty} omega*H(1j*omega) diverges
+
+	beam = TransferSystem(transfer = H, transfer_der = Hp, 
+			isreal = True, vectorized = True)
+
+	return beam
+
+
+def build_beam6():
+	r""" Pinned-free beam with shear force control
+
+	This function implements the pinned-free beam example from subsection 4.4 of [CM09]_.
+
+	Here we have set all the parameters to one:
+
+	.. math::
+
+		E = I = c_d = L = 1
+	
+
+
+	References
+	----------
+	.. [CM09] Transfer functions of distributed parameter systems: a tutorial,
+		R. Curtain and K. Morris. Automatica 45 (2009), p. 1101-1116
+
+	"""
+
+	def H(z):
+		m = (-z**2/(z+1))**(1/4)
+		N = np.cosh(m)*np.sin(m) - np.sinh(m)*np.cos(m)
+		
+		H = -2*np.sinh(m)*np.sin(m)/( m**3 * (1+z)*N)
+		return H
+
+	def Hp(z):
+		m = (-z**2/(z+1))**(1/4)
+		mp = m*(0.25*z+0.5)/(z*(z+1))
+		
+		N = np.cosh(m)*np.sin(m) - np.sinh(m)*np.cos(m)
+		Np = 2*np.sin(m)*np.sinh(m)*mp
+
+	beam = TransferSystem(transfer = H, isreal = True, vectorized = True)
+	return beam
+
 def build_cdplayer(sparse = False):
 	r""" The CD Player model
 
@@ -110,3 +197,26 @@ def build_iss(sparse = False):
 
 	return StateSpaceSystem(A, B, C)
 
+
+if __name__ == '__main__':
+	import matplotlib.pyplot as plt
+
+	H = build_string()
+	
+	#z = 1j*np.logspace(-3,5,500)
+	L = 1000
+	n = 1e5
+	#z1 = (1.j*L) / np.tan(np.arange(1, n+1) * np.pi / (n+1))
+	L = 5000
+	#z2 = (1.j*L) / np.tan(np.arange(1, n+1) * np.pi / (n+1))
+	z2 = 1j*np.pi*np.arange(1,1e3, 0.01)	
+
+	#Hz1 = H.transfer(z1).flatten()
+	Hz2 = H.transfer(z2).flatten()
+	
+	fig, ax = plt.subplots()
+	#ax.plot(z1.imag, np.abs(Hz1))
+	ax.plot(z2.imag/np.pi, np.abs(Hz2))
+	ax.set_yscale('log')
+	ax.set_xscale('linear')
+	plt.show()
