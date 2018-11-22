@@ -20,6 +20,9 @@ def build_string(epsilon = 1):
 			z(z+\\frac{\epsilon}{2})\sinh(z) + \epsilon(2\cosh(\\frac{z}{2}) - 3\cosh^2(\\frac{z}{2})+1)
 		}.
 
+	Note: according to [MorXX]_ p. 23, this is in :math:`\mathcal{H}_\infty`, not :math:`\mathcal{H}_2`.
+
+
 	Parameters
 	----------
 	epsilon: float, optional
@@ -34,7 +37,8 @@ def build_string(epsilon = 1):
 	----------
 	.. [CM09] Transfer functions of distributed parameter systems: a tutorial,
 		R. Curtain and K. Morris. Automatica 45 (2009), p. 1101-1116
-	
+
+	.. [MorXX] http://www.math.uwaterloo.ca/~kmorris/Preprints/Morris_controlhandbook.pdf	
 	"""
 
 	H = lambda z: ( z/2.*np.sinh(z) + 2*np.cosh(z/2) - 3*np.cosh(z/2)**2 + 1)/ (z*(z+epsilon/2)*np.sinh(z) + epsilon*(2*np.cosh(z/2) - 3*np.cosh(z/2)**2 + 1))
@@ -109,4 +113,18 @@ def build_iss(sparse = False):
 		raise NotImplementedError
 
 	return StateSpaceSystem(A, B, C)
+
+
+def build_bg_delay():
+	r""" Delay Differential Equation Example of Beattie and Gugercin
+
+
+	.. math::
+		
+
+
+	"""
+	pass
+	
+
 
