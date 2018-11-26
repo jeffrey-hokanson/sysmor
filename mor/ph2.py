@@ -318,7 +318,7 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 					else:
 						Hr = Hr1
 				except (np.linalg.linalg.LinAlgError, ValueError):
-					Hr = H1
+					Hr = Hr1
 					res_norm2 = np.inf
 			else:
 				Hr = Hr1
