@@ -213,7 +213,7 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 
 	"""
 	def __init__(self, rom_dim, real = True, maxiter = 1000, verbose = False, ftol = 1e-9, 
-		cond_max= 1e15, cond_growth = 2, mu_growth = 10, print_norm = False):
+		cond_max= 1e15, cond_growth = np.inf, mu_growth = 10, print_norm = False):
 		H2MOR.__init__(self, rom_dim, real = real)
 		self.maxiter = maxiter
 		self.verbose = verbose
@@ -227,13 +227,13 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 
 	def _mu_init(self, H):
 		if isinstance(H, StateSpaceSystem):
-			lam = H.poles(which = 'LR', k=6)#k = self.rom_dim)
-			mu_imag = [np.min(lam.imag), np.max(lam.imag)]
-			if self.real:
-				mu_imag = np.array([-1,1])*np.max(np.abs(mu_imag))
-			mu_real = -np.max(lam.real)
-
-			mu0 = mu_real + 1j*np.linspace(mu_imag[0], mu_imag[1], 6)
+			lam = H.poles(which = 'LR', k=6 )#k = self.rom_dim)
+			mu0 = np.abs(lam.real)+ 1j*lam.imag
+			#mu_imag = [np.min(lam.imag), np.max(lam.imag)]
+			#if self.real:
+			#	mu_imag = np.array([-1,1])*np.max(np.abs(mu_imag))
+			#mu_real = -np.max(lam.real)
+			#mu0 = mu_real + 1j*np.linspace(mu_imag[0], mu_imag[1], 6)
 			if self.real:
 				I = marriage_sort(mu0, mu0.conjugate())
 				mu0 = 0.5*(mu0 + mu0[I].conjugate())
@@ -246,12 +246,11 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			mu0 = self._mu_init(H)
 
 		mu = np.array(mu0, dtype = np.complex)
-		lam = np.zeros(0)	# Poles of the previous iterate
+		lam_proj = None
 		Hr = ZeroSystem(H.output_dim, H.input_dim)
 		
 		# Outer loop
 		for it in range(self.maxiter):
-			lam_old = lam
 			Hr_old = Hr
 			n = len(mu)
 
@@ -307,18 +306,18 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			res_norm1 = Hr1.residual_norm()
 
 			# Initialization based on previous poles
-			if (lam_old is not None) and len(lam_old) == Hr2.n:
+			if (lam_proj is not None) and len(lam_proj) == Hr2.n:
 				try:
 					# Sometimes numerical issues with initialization cause this to 
 					# fail, so we catch these exceptions 
-					Hr2.fit(mu, H_mu, W = M, lam0 = lam_old)
+					Hr2.fit(mu, H_mu, W = M, lam0 = lam_proj)
 					res_norm2 = Hr2.residual_norm()
 					# Set the reduced order model to be the smaller of the two
 					if res_norm2 < res_norm1:
 						Hr = Hr2
 					else:
 						Hr = Hr1
-				except np.linalg.linalg.LinAlgError:
+				except (np.linalg.linalg.LinAlgError, ValueError):
 					Hr = H1
 					res_norm2 = np.inf
 			else:
@@ -339,8 +338,6 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			lam_imag = np.maximum(self.mu_growth*np.min(mu.imag), np.minimum(self.mu_growth*np.max(mu.imag), lam.imag))
 			lam_proj = lam_real + 1j*lam_imag
 
-			# copy over the projected poles so the initialization is reasonable
-			lam = lam_proj
 
 			# Only consider positive imaginary part if we are going to include the conjugate automatically
 			if self.real:
@@ -370,9 +367,15 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			max_angle = np.nanmax(max_angles)
 			mu_star = -lam_can[k].conj()
 		
-			if self.verbose > 10:	
+			if self.verbose > 10:
+				print("")	
 				for i in range(len(lam_can)):
 					line = "angle %6.2f ; cond %6.2e ; mu %5.2e %+5.2e" %( 180/np.pi*max_angles[i], new_conds[i], -lam_can[i].real, lam_can[i].imag)
+					lam_can_non_proj = lam[lam_proj.imag>=0][i]
+					if lam_can_non_proj != lam_can[i]:
+						line += " ; lam %5.2e %+5.2e " % (-lam_can_non_proj.real, lam_can_non_proj.imag)
+					else:
+						line += " ;                        " 
 					if new_conds[i] > self.cond_growth*cond_M:
 						line += ' X '
 					else:
@@ -412,7 +415,7 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 					print(head1)
 					print(head2)
 	
-				if np.abs(res_norm1 - res_norm2) < 1e-6:
+				if np.abs(res_norm1 - res_norm2)/min([res_norm1,res_norm2]) < 1e-6:
 					init = 'either'
 				elif res_norm1 < res_norm2:
 					init = 'AAA'

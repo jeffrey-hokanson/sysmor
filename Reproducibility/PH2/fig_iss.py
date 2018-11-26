@@ -1,5 +1,6 @@
 import numpy as np
 from mor import ProjectedH2MOR, IRKA, TFIRKA, QuadVF
+from mor import cauchy_hermitian_svd
 from mor.demos import build_iss
 from mor.pgf import PGF
 
@@ -42,9 +43,17 @@ def run_mor(MOR, rs, prefix, **kwargs):
 		# Now plot history of this iteration
 		fom_eval_hist = [hist['total_fom_evals'] + hist['total_fom_der_evals'] + hist['total_linear_solves'] for hist in Hr.history]
 		rel_err_hist = [ (hist['Hr'] - H).norm()/H_norm for hist in Hr.history]
+
+		# Condition number
+		cond_M = np.zeros(len(Hr.history))
+		for i, hist in enumerate(Hr.history):
+			U, s, VH = cauchy_hermitian_svd(hist['mu'])
+			cond_M[i] = np.max(s)/np.min(s)
+
 		pgf = PGF()
 		pgf.add('fom_evals', fom_eval_hist)
-		pgf.add('rel_err', rel_err_hist)	
+		pgf.add('rel_err', rel_err_hist)
+		pgf.add('cond_M', cond_M)	
 		pgf.write(prefix + '_%02d.dat' % r)
 
 		# Generate Bode plot
@@ -85,7 +94,7 @@ if __name__ == '__main__':
 	rs = np.arange(2,50+2,2)
 	#rs = [24]
 	run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2', 
-		verbose = True, print_norm = True, cond_growth = 2, ftol = ftol, cond_max = 1e15, maxiter =200)
+		verbose = True, print_norm = True, cond_growth = np.inf, ftol = ftol, cond_max = 1e15, maxiter =200)
 	#run_mor(IRKA, rs, 'data/fig_iss_irka', verbose = True, print_norm = True, ftol = ftol)
 	#run_mor(TFIRKA, rs, 'data/fig_iss_tfirka', verbose = True, print_norm = True, ftol = ftol)
 
