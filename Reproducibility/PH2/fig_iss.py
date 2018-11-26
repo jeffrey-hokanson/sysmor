@@ -81,12 +81,13 @@ def run_quadvf(Ns, r, L, prefix,  **kwargs):
 	pgf.write(prefix + '_%02d_L%d.dat' % (r, L))
 
 if __name__ == '__main__':
-	ftol = 1e-9
+	ftol = 1e-09
 	rs = np.arange(2,50+2,2)
 	#rs = [24]
-	run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2', verbose = True, print_norm = True, cond_growth = 5, ftol = 1e-9, maxiter =200)
-	run_mor(IRKA, rs, 'data/fig_iss_irka', verbose = True, print_norm = True, ftol = ftol)
-	run_mor(TFIRKA, rs, 'data/fig_iss_tfirka', verbose = True, print_norm = True, ftol = ftol)
+	run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2', 
+		verbose = True, print_norm = True, cond_growth = 2, ftol = ftol, cond_max = 1e15, maxiter =200)
+	#run_mor(IRKA, rs, 'data/fig_iss_irka', verbose = True, print_norm = True, ftol = ftol)
+	#run_mor(TFIRKA, rs, 'data/fig_iss_tfirka', verbose = True, print_norm = True, ftol = ftol)
 
 	#Ns = np.arange(25, 1000+1,1)
 	#Ls = [10]

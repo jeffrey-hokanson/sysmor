@@ -227,15 +227,12 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 
 	def _mu_init(self, H):
 		if isinstance(H, StateSpaceSystem):
-			lam = H.poles(which = 'LR', k = self.rom_dim+2)
+			lam = H.poles(which = 'LR', k=6)#k = self.rom_dim)
 			mu_imag = [np.min(lam.imag), np.max(lam.imag)]
 			if self.real:
 				mu_imag = np.array([-1,1])*np.max(np.abs(mu_imag))
 			mu_real = -np.max(lam.real)
 
-			# TODO: Why does using 2r+2 work better than using a recursive initialization
-			# that only uses 6? 
-			#mu0 = mu_real + 1j*np.linspace(mu_imag[0], mu_imag[1], 2*self.rom_dim + 2)
 			mu0 = mu_real + 1j*np.linspace(mu_imag[0], mu_imag[1], 6)
 			if self.real:
 				I = marriage_sort(mu0, mu0.conjugate())
@@ -275,23 +272,29 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 				Hr1 = PartialFractionRationalFit(rom_dim-1, rom_dim, field = 'complex', stable = True, verbose = 2) 
 				Hr2 = PartialFractionRationalFit(rom_dim-1, rom_dim, field = 'complex', stable = True, verbose = 2) 
 
-			#for Hr in [Hr1, Hr2]:
-			#	Hr._transform = lambda x:x
-			#	Hr._inverse_transform = lambda x:x
-
-			# Evaluate the transfer function, recycling data
-			H_mu = self.eval_transfer(H, mu)
-			H_mu = H_mu.reshape(n,)		
 	
 			# Compute the weight matrix
 			L,d,p = cauchy_ldl(mu)
 
 			# Compute the condition number
 			U,s,VH = cauchy_hermitian_svd(mu, L = L, d = d, p = p)
+
+			if np.min(s) == 0:
+				if self.verbose:
+					print("Weight matrix singular")
+				break
+
 			cond_M = np.max(s)/np.min(s)
+			if rom_dim == self.rom_dim and (cond_M > self.cond_max):
+				if self.verbose:
+					print("Stopped due to large condition number of M")
+				break
 			
 			M = lambda x: cholesky_inv(x, L, d, p)
-			#Linv = M(np.eye(len(mu)))
+			
+			# Evaluate the transfer function, recycling data
+			H_mu = self.eval_transfer(H, mu)
+			H_mu = H_mu.reshape(n,)		
 		
 			H_norm_est = np.linalg.norm(M(H_mu))
 		
@@ -374,6 +377,12 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 						line += ' X '
 					else:
 						line += '   '
+	
+					if max_angles[i] >= np.max(max_angles):
+						line += ' O '
+					else:
+						line += '   '
+
 
 					if i == k:
 						line += " <=== "
@@ -436,10 +445,6 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 				if delta_Hr < self.ftol/Hr_norm:
 					if self.verbose:
 						print("Stopped due to small movement of Hr")
-					break
-				if cond_M > self.cond_max:
-					if self.verbose:
-						print("Stopped due to large condition number of M")
 					break
 		
 			mu = np.hstack([mu, mu_star])

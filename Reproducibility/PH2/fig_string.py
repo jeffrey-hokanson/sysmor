@@ -93,9 +93,9 @@ def choose_L(L_min, L_max, n = 1000):
 
 
 if __name__ == '__main__':
-	H = build_string(epsilon = 10)
+	H = build_string(epsilon = 1)
 	for N  in 1e3*np.arange(1,1000):
-		print int(N), '\t', H.quad_norm(L = 100, n = int(N))
+		print int(N), '\t', H.quad_norm(L = 10000, n = int(N))
 
 	#L = choose_L(1e-2,1e2, n = int(1e5))
 	#L = 5, N = 1e5 seem to be resonable choices

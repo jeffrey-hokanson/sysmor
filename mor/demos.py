@@ -20,6 +20,9 @@ def build_string(epsilon = 1):
 			z(z+\\frac{\epsilon}{2})\sinh(z) + \epsilon(2\cosh(\\frac{z}{2}) - 3\cosh^2(\\frac{z}{2})+1)
 		}.
 
+	Note: according to [MorXX]_ p. 23, this is in :math:`\mathcal{H}_\infty`, not :math:`\mathcal{H}_2`.
+
+
 	Parameters
 	----------
 	epsilon: float, optional
@@ -34,7 +37,8 @@ def build_string(epsilon = 1):
 	----------
 	.. [CM09] Transfer functions of distributed parameter systems: a tutorial,
 		R. Curtain and K. Morris. Automatica 45 (2009), p. 1101-1116
-	
+
+	.. [MorXX] http://www.math.uwaterloo.ca/~kmorris/Preprints/Morris_controlhandbook.pdf	
 	"""
 
 	H = lambda z: ( z/2.*np.sinh(z) + 2*np.cosh(z/2) - 3*np.cosh(z/2)**2 + 1)/ (z*(z+epsilon/2)*np.sinh(z) + epsilon*(2*np.cosh(z/2) - 3*np.cosh(z/2)**2 + 1))
@@ -121,12 +125,12 @@ def build_beam6():
 		H = -2*np.sinh(m)*np.sin(m)/( m**3 * (1+z)*N)
 		return H
 
-	def Hp(z):
-		m = (-z**2/(z+1))**(1/4)
-		mp = m*(0.25*z+0.5)/(z*(z+1))
-		
-		N = np.cosh(m)*np.sin(m) - np.sinh(m)*np.cos(m)
-		Np = 2*np.sin(m)*np.sinh(m)*mp
+#	def Hp(z):
+#		m = (-z**2/(z+1))**(1/4)
+#		mp = m*(0.25*z+0.5)/(z*(z+1))
+#		
+#		N = np.cosh(m)*np.sin(m) - np.sinh(m)*np.cos(m)
+#		Np = 2*np.sin(m)*np.sinh(m)*mp
 
 	beam = TransferSystem(transfer = H, isreal = True, vectorized = True)
 	return beam
@@ -198,25 +202,16 @@ def build_iss(sparse = False):
 	return StateSpaceSystem(A, B, C)
 
 
-if __name__ == '__main__':
-	import matplotlib.pyplot as plt
+def build_bg_delay():
+	r""" Delay Differential Equation Example of Beattie and Gugercin
 
-	H = build_string()
-	
-	#z = 1j*np.logspace(-3,5,500)
-	L = 1000
-	n = 1e5
-	#z1 = (1.j*L) / np.tan(np.arange(1, n+1) * np.pi / (n+1))
-	L = 5000
-	#z2 = (1.j*L) / np.tan(np.arange(1, n+1) * np.pi / (n+1))
-	z2 = 1j*np.pi*np.arange(1,1e3, 0.01)	
 
-	#Hz1 = H.transfer(z1).flatten()
-	Hz2 = H.transfer(z2).flatten()
+	.. math::
+		
+
+
+	"""
+	pass
 	
-	fig, ax = plt.subplots()
-	#ax.plot(z1.imag, np.abs(Hz1))
-	ax.plot(z2.imag/np.pi, np.abs(Hz2))
-	ax.set_yscale('log')
-	ax.set_xscale('linear')
-	plt.show()
+
+
