@@ -1,5 +1,5 @@
 numpy
-scipy
+scipy<=1.1.0
 matplotlib<=2.2.3
 functools32
 mpmath

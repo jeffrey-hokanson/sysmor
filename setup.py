@@ -9,7 +9,7 @@ setup(name='mor',
 	packages = ['mor', 'mor.opt'],
 	install_requires = [
 		'numpy', 
-		'scipy', 
+		'scipy<=1.1.0', 
 		'matplotlib<=2.2.3',
 		'mpmath',
 		'functools32',
