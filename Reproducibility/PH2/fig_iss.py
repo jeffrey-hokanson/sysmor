@@ -96,12 +96,8 @@ def run_quadvf(Ns, r, L, prefix,  **kwargs):
 if __name__ == '__main__':
 	ftol = 1e-09
 	rs = np.arange(2,50+2,2)
-	H = build_iss()
-	#print H.spectral_abscissa()
-	#rs = [28]
-	run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2', 
-		verbose = 10, print_norm = True, cond_growth = np.inf, ftol = ftol, cond_max = 1e15, maxiter =200,
-		spectral_abscissa = H.spectral_abscissa())
+	#rs = [20]
+	run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2', verbose = True, print_norm = True, ftol = ftol)
 	#run_mor(IRKA, rs, 'data/fig_iss_irka', verbose = True, print_norm = True, ftol = ftol)
 	#run_mor(TFIRKA, rs, 'data/fig_iss_tfirka', verbose = True, print_norm = True, ftol = ftol)
 
