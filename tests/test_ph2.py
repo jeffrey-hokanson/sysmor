@@ -1,7 +1,7 @@
 import numpy as np
 from mor.ph2 import subspace_angle_V_M, subspace_angle_V_V
 from mor import ProjectedH2MOR
-from mor.demos import build_string
+from mor.demos import build_iss
 
 def test_subspace_angle_V_M(n = 10, m = 1):
 
@@ -26,7 +26,7 @@ def test_ph2():
 	np.random.seed(0)
 	ph2 = ProjectedH2MOR(2, real = True, maxiter = 10)
 
-	H = build_string()
+	H = build_iss()[0,0]
 
 	mu0 = [1+1j, 1+2j, 1-1j, 1-2j]
 	ph2.fit(H, mu0 = mu0) 
