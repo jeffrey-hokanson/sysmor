@@ -269,16 +269,16 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 			# Constrain the real part of the poles
 			lb = -np.inf*np.ones(lam0.view(float).shape)
 			ub = np.inf*np.ones(lam0.view(float).shape)
-			real_part = ( 1j*np.ones(lam0.shape)).view(float) == 0.
+			real_part = np.ones(lam0.shape, dtype = complex).view(float) != 0.
 			ub[real_part] = self.spectral_abscissa
 			bounds = (lb, ub)
+			lam0 = np.minimum(lam0.real, self.spectral_abscissa) + 1j*lam0.imag
 		else:
 			bounds = (-np.inf, np.inf)
 
 		self._res = res = least_squares(res, lam0.view(float), jac = jac, bounds = bounds, **self.kwargs)
 		lam = res.x.view(complex)
 		self.lam = lam
-
 		# Compute residues and additional polynomial terms
 		V = self.vandmat(lam)
 		WV = self.W(V)
@@ -298,7 +298,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		# project lam so that it is in the space of acceptable lam
 		I = marriage_sort(lam, lam.conjugate())
 		lam = 0.5*(lam + lam[I].conjugate())
-		
+		print "lam paired", lam
 		# Transform
 		lam = self._transform(lam)
 		# Sort into pairs
@@ -325,12 +325,11 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 				b[2*i] = beta
 				b[2*i+1] = gamma
 		if (self.n % 2 == 1):
-			b[-1] = -lam[-1].real	
+			b[-1] = -lam[-1].real
 		return b
 
 	def _b2lam(self, b):
 		lam = np.zeros((self.n,), dtype = np.complex)
-
 		for i in range(self.n // 2):
 			# Here we are careful in how we compute the roots via the quadratic equation
 			# to avoid cancellation.
@@ -342,9 +341,9 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 				lam[2*i  ] = -b[2*i]/2. - np.sqrt(0j + b[2*i]**2 - 4*b[2*i+1])/2.
 				lam[2*i+1] = b[2*i+1]/lam[2*i]
 			else:
-				lam[2*i  ] = np.sqrt(b[2*i+1])
-				lam[2*i-1] = -np.sqrt(b[2*i+1])
-
+				lam[2*i  ] = np.sqrt(0j-b[2*i+1])
+				lam[2*i+1] = -np.sqrt(0j-b[2*i+1])
+		
 		if self.n % 2 == 1:
 			lam[-1] = -b[-1]
 		return self._inverse_transform(lam)
@@ -378,7 +377,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		#b, info = gn(f=res, F=jac, x0=b0, **self.kwargs)
 
 		if self.stable:
-			lam = self._b2lam(b)				
+			lam = self._b2lam(b)
 			# Force into strict LHP
 			lam = np.minimum(self.spectral_abscissa*np.ones(lam.shape), lam.real) + 1j * lam.imag
 			b = self._lam2b(lam)
@@ -389,7 +388,6 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 
 		self.b = b
 		self.lam = lam
-		
 		
 		# Now compute residues
 		#---------------------
