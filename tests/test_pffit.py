@@ -124,6 +124,8 @@ def test_pf_fit_stable():
 		pf = PartialFractionRationalFit(*arg, **kwargs)
 		pf.fit(z, f)
 		lam, rho = pf.pole_residue()
+		print kwargs
+		print lam
 		assert np.all(lam.real <= 0), "Did not recover a stable system"
 
 def test_pf_real():
