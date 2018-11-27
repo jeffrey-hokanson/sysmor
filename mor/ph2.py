@@ -210,10 +210,23 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 		Dimension of reduced order model to construct
 	real: bool (optional)
 		If True, fit a real dynamical system; if False, fi a complex dynamical system
-
+	maxiter: int
+		Maximum number of iterations, each costing one evaluation of H, to take
+	verbose: bool or int
+		Specify verbosity level:
+		* False: do not print
+		* True : print convergence history
+		* >= 10: print choices of mu_star and corresponding subspace angles
+		* >=100: print convergence history of inner loop
+	ftol: float, positive
+		Tolerance for change in successive iterations of the reduced order model
+	cond_max: float, positive
+		Maximum condition number of M before iteration terminates
+	mu_growth: float, positive
+		
 	"""
 	def __init__(self, rom_dim, real = True, maxiter = 1000, verbose = False, ftol = 1e-9, 
-		cond_max= 1e15, cond_growth = np.inf, mu_growth = 10, print_norm = False):
+		cond_max= 1e15, mu_growth = 10, print_norm = False, spectral_abscissa = None):
 		H2MOR.__init__(self, rom_dim, real = real)
 		self.maxiter = maxiter
 		self.verbose = verbose
@@ -221,19 +234,23 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 		self.cond_max = cond_max
 		self.over_determine = 2
 		self.print_norm = print_norm
-		self.cond_growth = cond_growth
 		self.mu_growth = mu_growth
-
+		self._spectral_abscissa = spectral_abscissa
 
 	def _mu_init(self, H):
 		if isinstance(H, StateSpaceSystem):
-			lam = H.poles(which = 'LR', k=6 )#k = self.rom_dim)
-			mu0 = np.abs(lam.real)+ 1j*lam.imag
-			#mu_imag = [np.min(lam.imag), np.max(lam.imag)]
-			#if self.real:
-			#	mu_imag = np.array([-1,1])*np.max(np.abs(mu_imag))
-			#mu_real = -np.max(lam.real)
-			#mu0 = mu_real + 1j*np.linspace(mu_imag[0], mu_imag[1], 6)
+			#lam = H.poles(which = 'LR', k= 6)
+			#lam = H.poles(which = 'LR', k= max(6,self.rom_dim) )
+			lam = H.poles(which = 'LR', k = self.rom_dim )
+			#mu0 = np.abs(lam.real)+ 1j*lam.imag
+			mu_imag = [np.min(lam.imag), np.max(lam.imag)]
+			if self.real:
+				mu_imag = np.array([-1,1])*np.max(np.abs(mu_imag))
+			#mu0 = np.abs(lam.real) + 1j*lam.imag
+			mu_real = -np.max(lam.real)
+			mu0 = mu_real + 1j*np.linspace(mu_imag[0], mu_imag[1], 6)
+			#mu0 = mu_real + 1j*np.linspace(mu_imag[0], mu_imag[1], 2*self.rom_dim+2)
+			#mu0 = mu_real + 1j*lam.imag
 			if self.real:
 				I = marriage_sort(mu0, mu0.conjugate())
 				mu0 = 0.5*(mu0 + mu0[I].conjugate())
@@ -241,10 +258,15 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 		raise NotImplementedError
 
 	def _fit(self, H, mu0 = None):
-		
+		# If a spectral abscissa hasn't been provided, use that of the FOM
+		if self._spectral_abscissa is None:
+			try:
+				self._spectral_abscissa = H.spectral_abscissa()
+			except:
+				pass	
+	
 		if mu0 is None:
 			mu0 = self._mu_init(H)
-
 		mu = np.array(mu0, dtype = np.complex)
 		lam_proj = None
 		Hr = ZeroSystem(H.output_dim, H.input_dim)
@@ -263,13 +285,6 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 				rom_dim = max(1, rom_dim)
 			rom_dim = min(self.rom_dim, rom_dim)
 
-			# Initialize two copies of the fitting routine for the two initializations we will use 
-			if self.real:			
-				Hr1 = PartialFractionRationalFit(rom_dim-1, rom_dim, field = 'real', stable = True, verbose = 0, xtol = 1e-12, gtol = 1e-10, ftol = 1e-10, max_nfev = 500) 
-				Hr2 = PartialFractionRationalFit(rom_dim-1, rom_dim, field = 'real', stable = True, verbose = 0, xtol = 1e-12, gtol = 1e-10, ftol = 1e-10, max_nfev = 500) 
-			else:			
-				Hr1 = PartialFractionRationalFit(rom_dim-1, rom_dim, field = 'complex', stable = True, verbose = 2) 
-				Hr2 = PartialFractionRationalFit(rom_dim-1, rom_dim, field = 'complex', stable = True, verbose = 2) 
 
 	
 			# Compute the weight matrix
@@ -294,20 +309,45 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			# Evaluate the transfer function, recycling data
 			H_mu = self.eval_transfer(H, mu)
 			H_mu = H_mu.reshape(n,)		
-		
-			H_norm_est = np.linalg.norm(M(H_mu))
-		
+	
+			try:	
+				H_norm_est = np.linalg.norm(M(H_mu))
+			except (ValueError,np.linalg.linalg.LinAlgError):
+				H_norm_est = np.inf
+	
 			###################################################################
 			# Find rational approximation (inner loop)
 			###################################################################
 			
+			# Initialize two copies of the fitting routine for the two initializations we will use 
+			kwargs = {}
+			kwargs['xtol'] = 3e-16
+			kwargs['gtol'] = 3e-16
+			kwargs['ftol'] = 3e-16
+			kwargs['max_nfev'] = 10*self.rom_dim
+			if self._spectral_abscissa is not None:
+				kwargs['spectral_abscissa'] = self._spectral_abscissa
+			if self.verbose >= 100:
+				kwargs['verbose'] = 2
+
+			if self.real:	
+				Hr1 = PartialFractionRationalFit(rom_dim-1, rom_dim, field = 'real', stable = True, **kwargs) 
+				Hr2 = PartialFractionRationalFit(rom_dim-1, rom_dim, field = 'real', stable = True, **kwargs) 
+			else:			
+				Hr1 = PartialFractionRationalFit(rom_dim-1, rom_dim, field = 'complex', stable = True, **kwargs) 
+				Hr2 = PartialFractionRationalFit(rom_dim-1, rom_dim, field = 'complex', stable = True, **kwargs) 
+			
 			# Default (AAA) initialization
-			Hr1.fit(mu, H_mu, W = M)
-			res_norm1 = Hr1.residual_norm()
+			try:
+				Hr1.fit(mu, H_mu, W = M)
+				res_norm1 = Hr1.residual_norm()
+			except (ValueError, np.linalg.linalg.LinAlgError):
+				res_norm1 = np.inf
 
 			# Initialization based on previous poles
 			if (lam_proj is not None) and len(lam_proj) == Hr2.n:
 				try:
+					#raise ValueError
 					# Sometimes numerical issues with initialization cause this to 
 					# fail, so we catch these exceptions 
 					Hr2.fit(mu, H_mu, W = M, lam0 = lam_proj)
@@ -315,17 +355,29 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 					# Set the reduced order model to be the smaller of the two
 					if res_norm2 < res_norm1:
 						Hr = Hr2
+						res_norm = res_norm2
 					else:
 						Hr = Hr1
+						res_norm = res_norm1
 				except (np.linalg.linalg.LinAlgError, ValueError):
 					Hr = Hr1
 					res_norm2 = np.inf
+					res_norm = res_norm1
 			else:
 				Hr = Hr1
 				res_norm2 = np.inf
+				res_norm = res_norm1
+
+			if res_norm == np.inf:
+				if self.verbose:
+					print("Could not find valid reduced order model")
+				break
 
 			# Convert into a pole-residue representation
-			lam, rho = Hr.pole_residue()	
+			lam, rho = Hr.pole_residue()
+			if self.verbose >= 50:
+				print "b  ", Hr.b
+				print "lam", lam	
 			Hr = PoleResidueSystem(lam, rho)	
 
 			###################################################################
@@ -336,15 +388,25 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			lam_real = np.maximum(-self.mu_growth*np.max(mu.real)*np.ones(lam.shape), lam.real)
 			lam_real = np.minimum(-(1./self.mu_growth)*np.min(mu.real)*np.ones(lam.shape), lam_real)
 			lam_imag = np.maximum(self.mu_growth*np.min(mu.imag), np.minimum(self.mu_growth*np.max(mu.imag), lam.imag))
+			# Ensure the real part is to the left of the specified spectral abscissa
+			lam_real = np.minimum(lam_real, self._spectral_abscissa*np.ones(lam.shape))
 			lam_proj = lam_real + 1j*lam_imag
 
-
+			# Make sure candidates are sufficiently far away from existing samples
+			tol = 1e-8
+			while True:
+				lam_can = np.array([ lam_i for lam_i in lam_proj if np.min(np.abs(-lam_i.conj() - mu)) > tol])
+				if len(lam_can) >0:
+					break
+				tol *= 0.1
+			
 			# Only consider positive imaginary part if we are going to include the conjugate automatically
 			if self.real:
-				lam_can = lam_proj[lam_proj.imag >= 0]
+				lam_can = lam_can[lam_can.imag >= 0]
 			else:
-				lam_can = lam_proj
-			
+				lam_can = lam_can
+
+
 			# Find the largest subspace angle 
 			max_angles = np.zeros(len(lam_can))
 			new_conds = np.zeros(len(lam_can))
@@ -355,37 +417,15 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 				else:
 					mu_new = np.hstack([ mu, -lam_can[i].conj() ])
 
-				_, snew, _ = cauchy_hermitian_svd(mu_new)
-				new_conds[i] = (snew[0]/snew[-1])
-		
-	
-			# Append existing mu
-			if np.min(new_conds) > self.cond_growth*cond_M:
-				k = np.nanargmin(new_conds)
-			else:
-				k = np.nanargmax(max_angles - 100*(new_conds > self.cond_growth*cond_M) )
+			k = np.nanargmax(max_angles) 
 			max_angle = np.nanmax(max_angles)
+			# New interpolation point
 			mu_star = -lam_can[k].conj()
-		
-			if self.verbose > 10:
-				print("")	
-				for i in range(len(lam_can)):
-					line = "angle %6.2f ; cond %6.2e ; mu %5.2e %+5.2e" %( 180/np.pi*max_angles[i], new_conds[i], -lam_can[i].real, lam_can[i].imag)
-					lam_can_non_proj = lam[lam_proj.imag>=0][i]
-					if lam_can_non_proj != lam_can[i]:
-						line += " ; lam %5.2e %+5.2e " % (-lam_can_non_proj.real, lam_can_non_proj.imag)
-					else:
-						line += " ;                        " 
-					if new_conds[i] > self.cond_growth*cond_M:
-						line += ' X '
-					else:
-						line += '   '
 	
-					if max_angles[i] >= np.max(max_angles):
-						line += ' O '
-					else:
-						line += '   '
-
+			if self.verbose >= 10:
+				print("")
+				for i in np.argsort(max_angles):
+					line = "angle %6.2f ; mu %5.2e %+5.2e" %( 180/np.pi*max_angles[i], -lam_can[i].real, lam_can[i].imag)
 
 					if i == k:
 						line += " <=== "
@@ -431,7 +471,9 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 
 				print(iter_message)
 			
+			###################################################################
 			# Copy logging information
+			###################################################################
 			if self.history is not None:
 				# TODO: Do we need to copy Hr? I don't think so since there is no way to edit it in place
 				self.history.append({
@@ -443,13 +485,18 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 				})
 
 
+			###################################################################
 			# Break if termination conditions are met
+			###################################################################
 			if rom_dim == self.rom_dim:
 				if delta_Hr < self.ftol/Hr_norm:
 					if self.verbose:
 						print("Stopped due to small movement of Hr")
 					break
 		
+			###################################################################
+			# Update projector
+			###################################################################
 			mu = np.hstack([mu, mu_star])
 			if (np.abs(mu_star.imag) > 0) and self.real:
 				mu = np.hstack([mu, mu_star.conjugate()])

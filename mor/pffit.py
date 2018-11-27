@@ -1,5 +1,6 @@
 # (c) Jeffrey M. Hokanson May 2018
 import numpy as np
+import warnings
 from scipy.linalg import solve_triangular, lstsq, svd
 from scipy.optimize import least_squares
 from lagrange import LagrangePolynomial, BarycentricPolynomial
@@ -59,11 +60,11 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 
 
 	"""
-	def __init__(self, m, n, field = 'complex', stable = False, init = 'aaa', stable_margin = 1e-5, **kwargs):
+	def __init__(self, m, n, field = 'complex', stable = False, init = 'aaa', spectral_abscissa = 0, **kwargs):
 
 		assert m + 1 >= n, "Pole-residue parameterization requires m + 1 >= n" 
 		OptimizationRationalFit.__init__(self, m, n, field = field, stable = stable, init = init, **kwargs)
-		self.stable_margin = stable_margin	
+		self.spectral_abscissa = spectral_abscissa
 
 	def _call(self, z):
 #		b = self.b
@@ -269,7 +270,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 			lb = -np.inf*np.ones(lam0.view(float).shape)
 			ub = np.inf*np.ones(lam0.view(float).shape)
 			real_part = ( 1j*np.ones(lam0.shape)).view(float) == 0.
-			ub[real_part] = -self.stable_margin
+			ub[real_part] = self.spectral_abscissa
 			bounds = (lb, ub)
 		else:
 			bounds = (-np.inf, np.inf)
@@ -350,22 +351,25 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 
 
 	def _fit_real(self, lam0):
-		b0 = self._lam2b(lam0)
 		res = lambda b: self.residual_real(b, return_real = True)
 		jac = lambda b: self.jacobian_real(b)
 		
 		# If we are enforcing a stability constraint, setup the box constraints
 		if self.stable:
+			# Push the initial poles slightly into the left half plane	
+			lam0 = np.minimum(lam0.real, np.zeros(lam0.shape)) + 1j*lam0.imag
+			b0 = self._lam2b(lam0)
+			
 			# Working through the quadratic formula,
 			# [ -b +/- sqrt(b^2 - 4c) ]/2
 			# has roots in the LHP if b, c are in the positive orthant
 			lb = np.zeros(b0.shape)
+			#lb[0::2] = -2*self.spectral_abscissa
 			ub = np.inf*np.ones(b0.shape)
 			bounds = (lb, ub)
-			# If the initialization places on the boundary, 
-			# push slightly into positive orthant
-			b0 = np.maximum(b0, 1e-7*np.ones(b0.shape))
+			b0 = np.maximum(b0, lb)
 		else:
+			b0 = self._lam2b(lam0)
 			bounds = (-np.inf, np.inf)
 			
 		# Solve the optimization problem 	
@@ -376,14 +380,8 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		if self.stable:
 			lam = self._b2lam(b)				
 			# Force into strict LHP
-			for i in range(self.n // 2):
-				if (lam[2*i+1].real == 0) or (lam[2*i+1].real == 0):
-					# Push slightly into the positive orthant
-					b[2*i] += 1e-7
-					b[2*i+1] += 1e-7
-			if self.n % 2 == 0:
-				if lam[-1].real == 0:
-					b[-1] += 1e-7	
+			lam = np.minimum(self.spectral_abscissa*np.ones(lam.shape), lam.real) + 1j * lam.imag
+			b = self._lam2b(lam)
 		
 		# Compute residues
 		r, a = self.residual_jacobian_real(b, jacobian = False, return_real = True)
@@ -399,12 +397,20 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		# Compute the scaling coefficient
 		scale = (1./(self._transform(1) - self._transform(0))).real
 		rho = np.zeros(self.n, dtype = np.complex)
+		
 		for i in range(self.n // 2):
 			lamt1 = self._transform(lam[2*i])
 			lamt2 = self._transform(lam[2*i+1])
-			
-			rho[2*i] = scale * (a[2*i]*lamt1 + a[2*i+1])/(lamt1 - lamt2)
-			rho[2*i+1] = scale* (-a[2*i]*lamt2 - a[2*i+1])/(lamt1 - lamt2)
+			# This formula will produce errors if there is a double root,
+			# so we catch this error and set the corresponding residues to zero
+			# as the corresponding VarPro solution will have an ill-conditioned Jacobian
+			with warnings.catch_warnings():
+				warnings.filterwarnings('error')
+				try:
+					rho[2*i] = scale * (a[2*i]*lamt1 + a[2*i+1])/(lamt1 - lamt2)
+					rho[2*i+1] = scale* (-a[2*i]*lamt2 - a[2*i+1])/(lamt1 - lamt2)
+				except:
+					pass
 		
 		if self.n % 2 == 1:
 			rho[-1] = a[0]
