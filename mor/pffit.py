@@ -64,6 +64,10 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 
 		assert m + 1 >= n, "Pole-residue parameterization requires m + 1 >= n" 
 		OptimizationRationalFit.__init__(self, m, n, field = field, stable = stable, init = init, **kwargs)
+		if 'tr_solver' not in self.kwargs:
+			self.kwargs['tr_solver'] = 'exact'
+		if 'x_scale' not in self.kwargs:
+			self.kwargs['x_scale'] = 'jac'
 		self.spectral_abscissa = spectral_abscissa
 
 	def _call(self, z):
@@ -298,7 +302,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		# project lam so that it is in the space of acceptable lam
 		I = marriage_sort(lam, lam.conjugate())
 		lam = 0.5*(lam + lam[I].conjugate())
-		print "lam paired", lam
+	
 		# Transform
 		lam = self._transform(lam)
 		# Sort into pairs
@@ -372,7 +376,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 			bounds = (-np.inf, np.inf)
 			
 		# Solve the optimization problem 	
-		self._res = res = least_squares(res, b0, jac, bounds = bounds, x_scale = 'jac', **self.kwargs)
+		self._res = res = least_squares(res, b0, jac, bounds = bounds, **self.kwargs)
 		b = res.x
 		#b, info = gn(f=res, F=jac, x0=b0, **self.kwargs)
 
