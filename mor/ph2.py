@@ -291,6 +291,8 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			L,d,p = cauchy_ldl(mu)
 
 			# Compute the condition number
+			# TODO: Do we want remove this SVD computation to improve wall-clock performance
+			# since we work with the LDL* factorization naively?
 			U,s,VH = cauchy_hermitian_svd(mu, L = L, d = d, p = p)
 
 			if np.min(s) == 0:
