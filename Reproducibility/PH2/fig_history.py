@@ -29,7 +29,7 @@ def run_mor(MOR, r = 2, **kwargs):
 		pgf.add('lam_imag', lam.imag)
 		pgf.write('data/fig_history_lam_%d.dat' % k)	
 
-		Hrz = Hr.transfer(z)
+		Hrz = hist['Hr'].transfer(z)
 		pgf = PGF()
 		pgf.add('z', z.imag)
 		pgf.add('Hz', np.abs(Hz).flatten())
