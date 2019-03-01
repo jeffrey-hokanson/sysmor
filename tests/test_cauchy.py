@@ -40,11 +40,11 @@ def test_cauchy_inverse(n = 50):
 	print D2
 	err = np.linalg.norm(D - D2, np.inf)/np.linalg.norm(D, np.inf)
 	print "Error", err
-	assert err < 1e-8 
+	assert err < 1e-7 
 	
 	diag_err = np.linalg.norm( (d - np.diag(D2))/d, np.inf)
 	print "diagonal relative error", diag_err
-	assert diag_err < 1e-8
+	assert diag_err < 1e-7
 
 def test_cholesky_inv_norm(n = 50):
 	np.random.seed(1)
