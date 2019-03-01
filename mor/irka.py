@@ -1,4 +1,4 @@
-from __future__ import division
+from __future__ import division, print_function
 import numpy as np
 
 # For delay systems, see: https://people.kth.se/~eliasj/doc/delaylyap-2010-07-12.pdf
@@ -15,6 +15,7 @@ from marriage import marriage_sort, marriage_norm
 def rational_krylov_approximation(H, mu):
 	r""" Constructs a rational Krylov approximation
 
+	By construction this recovers a real system.
 	"""
 	assert isinstance(H, StateSpaceSystem), "IRKA only applies to state-space systems"
 
