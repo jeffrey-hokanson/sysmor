@@ -1,5 +1,5 @@
 import numpy as np
-from system import TransferSystem, StateSpaceSystem 
+from .system import TransferSystem, StateSpaceSystem 
 import os 
 
 # Extract the path of this file

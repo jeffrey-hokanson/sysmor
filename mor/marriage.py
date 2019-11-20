@@ -97,5 +97,5 @@ if __name__ == "__main__":
 	I = np.random.permutation(11)
 	b = b[I] + 1e-4*np.random.rand(11)
 	I2 = marriage_sort(a,b)
-	print a
-	print b[I2]
+	print(a)
+	print(b[I2])

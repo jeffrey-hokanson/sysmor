@@ -1,10 +1,10 @@
 import numpy as np
 from scipy.linalg import solve_triangular, lstsq, svd
 #from opt.gn import gn, BadStep
-from ratfit import RationalFit
-from aaa import AAARationalFit
+from .ratfit import RationalFit
+from .aaa import AAARationalFit
 
-from check_der import check_jacobian, check_gradient
+from .check_der import check_jacobian, check_gradient
 
 class PolynomialBasisRationalFit(RationalFit):
 	"""Fits a rational approximation parameterized using two polynomial bases
@@ -252,7 +252,7 @@ class PolynomialBasisRationalFit(RationalFit):
 			r = np.dot(self.W, mismatch)
 		
 		if not np.all(np.isfinite(r)):
-			print "residual not finite!!"
+			print("residual not finite!!")
 			raise Exception
 
 		if jacobian is False:
@@ -320,7 +320,7 @@ class PolynomialBasisRationalFit(RationalFit):
 		r = Wh - np.dot(WOmega, a) 
 	
 		if not np.all(np.isfinite(r)):
-			print "residual not finite!!"
+			print("residual not finite!!")
 			raise Exception
 
 		# Stop if we don't need to compute the jacobian
@@ -428,7 +428,7 @@ def test_jacobian():
 		b = b/np.linalg.norm(b)
 
 	err = check_jacobian(b.view(float), residual, jacobian)
-	print "Error in Jacobian %5.5e" % (err,)
+	print("Error in Jacobian %5.5e" % (err,))
 	assert err < 1e-7
 
 def test_jacobian_real():
@@ -452,13 +452,13 @@ def test_jacobian_real():
 		b = b[0:-1]/b[-1]
 
 	err = check_jacobian(b, residual, jacobian)
-	print "Error in Jacobian for real problem %5.5e" % (err,)
+	print("Error in Jacobian for real problem %5.5e" % (err,))
 	
 	b = pb.b
 	if pb.normalize == 'monic':
 		b = b[0:-1]/b[-1]
 	err = check_jacobian(pb.b, residual, jacobian)
-	print "Error in Jacobian for real problem %5.5e" % (err,)
+	print("Error in Jacobian for real problem %5.5e" % (err,))
 	assert err < 1e-7
 
 
@@ -486,11 +486,11 @@ def test_plain_jacobian():
 	Jcond = np.linalg.cond(jacobian(x))
 	
 	err = check_jacobian(x.view(float), residual, jacobian)
-	print "Error in Jacobian %5.5e" % (err,)
+	print("Error in Jacobian %5.5e" % (err,))
 	assert err < 1e-10*Jcond
 	
 	err = check_gradient(x.view(float), residual, jacobian)
-	print "Error in gradient %5.5e" % (err,)
+	print("Error in gradient %5.5e" % (err,))
 	assert err < 1e-10*Jcond
 
 
@@ -514,8 +514,8 @@ if __name__ == '__main__':
 	b = pb.b
 	a = pb.a
 
-	print a
-	print b
+	print(a)
+	print(b)
 	
 	if False:
 		residual = lambda x: pb.residual(x, return_real = True)
@@ -525,7 +525,7 @@ if __name__ == '__main__':
 		b = b/np.linalg.norm(b)
 		b = b
 		err = check_jacobian(b, residual, jacobian)
-		print "Error in Jacobian %5.5e" % (err,)
+		print("Error in Jacobian %5.5e" % (err,))
 
 #	pb.plain_residual_jacobian(a,b)
 #

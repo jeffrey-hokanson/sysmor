@@ -1,8 +1,8 @@
 import numpy as np
 from scipy.linalg import lstsq
-from ratfit import RationalFit
 from scipy.linalg import solve_triangular, lstsq, svd
-from pffit import PartialFractionRationalFit as PoleResidueRationalFit
+from .ratfit import RationalFit
+from .pffit import PartialFractionRationalFit as PoleResidueRationalFit
 
 class VFRationalFit(PoleResidueRationalFit):
 	""" Use vector fitting to build a rational approximation
@@ -124,5 +124,5 @@ if __name__ == '__main__':
 	h = dat['h'].flatten()
 	vf = VFRationalFit(29,30, verbose = True, maxiter = 500, tol_bnorm = 1e-14, normalize = 'monic')
 	vf.fit(z, h)
-	print np.linalg.norm(vf(z) - h)/np.linalg.norm(h)
+	print(np.linalg.norm(vf(z) - h)/np.linalg.norm(h))
 		

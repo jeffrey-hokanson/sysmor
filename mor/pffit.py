@@ -3,11 +3,11 @@ import numpy as np
 import warnings
 from scipy.linalg import solve_triangular, lstsq, svd
 from scipy.optimize import least_squares
-from lagrange import LagrangePolynomial, BarycentricPolynomial
-from marriage import marriage_sort
-from ratfit import RationalFit
-from optfit import OptimizationRationalFit, BadStep
-from aaa import AAARationalFit
+from .lagrange import LagrangePolynomial, BarycentricPolynomial
+from .marriage import marriage_sort
+from .ratfit import RationalFit
+from .optfit import OptimizationRationalFit, BadStep
+from .aaa import AAARationalFit
 from itertools import product
 
 
@@ -133,7 +133,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		try:
 			a = solve_triangular(WV_R, b)
 		except Exception as e:
-			print "solve_trianuglar failed"
+			print("solve_trianuglar failed")
 			raise e
 
 		# residual
@@ -189,7 +189,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 	
 		if self.m - self.n >= 0:
 			Omega = np.hstack(Theta + [self._legendre_vandmat(self.m - self.n, self.z)])
- 		else:
+		else:
 			Omega = np.hstack(Theta)
 
 		WOmega = self.W(Omega)

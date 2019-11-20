@@ -4,8 +4,8 @@
 from __future__ import division
 import numpy as np
 import scipy
-from lagrange import BarycentricPolynomial 
-from ratfit import RationalFit
+from .lagrange import BarycentricPolynomial 
+from .ratfit import RationalFit
 
 class AAARationalFit(RationalFit):
 	""" Construct a degree (m,m) rational approximation using the AAA algorithm
@@ -81,7 +81,7 @@ class AAARationalFit(RationalFit):
 			residual = self.f - self.__call__(self.z)	
 
 			if self.verbose:
-				print "AAA iter %3d; residual norm %5.5e; sigma_min %5.5e" % (k, np.linalg.norm(residual), s[-1])
+				print("AAA iter %3d; residual norm %5.5e; sigma_min %5.5e" % (k, np.linalg.norm(residual), s[-1]))
 			if self.tol is not None and np.linalg.norm(residual, np.inf) < self.tol:
 				break
 

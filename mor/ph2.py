@@ -1,12 +1,12 @@
 from __future__ import division
 import numpy as np
 from scipy.linalg import solve_triangular, cholesky, svdvals
-from system import StateSpaceSystem, PoleResidueSystem, ZeroSystem
-from h2mor import H2MOR
-from pffit import PartialFractionRationalFit
-from cauchy import cauchy_ldl, cauchy_hermitian_svd 
-from marriage import marriage_sort
-from subspace import subspace_angle_V_M_mp
+from .system import StateSpaceSystem, PoleResidueSystem, ZeroSystem
+from .h2mor import H2MOR
+from .pffit import PartialFractionRationalFit
+from .cauchy import cauchy_ldl, cauchy_hermitian_svd 
+from .marriage import marriage_sort
+from .subspace import subspace_angle_V_M_mp
 
 
 def subspace_angle_V_M(mu, lam, L = None, d = None, p = None):
@@ -378,8 +378,8 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			# Convert into a pole-residue representation
 			lam, rho = Hr.pole_residue()
 			if self.verbose >= 50:
-				print "b  ", Hr.b
-				print "lam", lam	
+				print("b  ", Hr.b)
+				print("lam", lam)	
 			Hr = PoleResidueSystem(lam, rho)	
 
 			###################################################################

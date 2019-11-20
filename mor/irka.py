@@ -7,9 +7,9 @@ from scipy.sparse import issparse
 from scipy.sparse import eye as speye
 from scipy.sparse.linalg import eigs, spsolve
 
-from h2mor import H2MOR
-from system import StateSpaceSystem, PoleResidueSystem, ZeroSystem
-from marriage import marriage_sort, marriage_norm
+from .h2mor import H2MOR
+from .system import StateSpaceSystem, PoleResidueSystem, ZeroSystem
+from .marriage import marriage_sort, marriage_norm
 	
 
 def rational_krylov_approximation(H, mu):

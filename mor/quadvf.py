@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.linalg
-from system import PoleResidueSystem, ZeroSystem
-from h2mor import H2MOR
+from .system import PoleResidueSystem, ZeroSystem
+from .h2mor import H2MOR
 
 class QuadVF(H2MOR, PoleResidueSystem):
 	"""Quadrature based H2 Model Reduction
@@ -70,7 +70,7 @@ class QuadVF(H2MOR, PoleResidueSystem):
 		lam = np.copy(lam0)
 		n = len(mu)
 		r = len(lam)
- 		Hr = ZeroSystem(1,1)
+		Hr = ZeroSystem(1,1)
 		# TODO: Ideally, we should modify the vector fitting code to allow this weighting
 		# and additional rows.  
 		# TODO: Although not what is done in DGB15, we should ideally 

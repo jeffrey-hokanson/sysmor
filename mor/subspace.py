@@ -1,7 +1,11 @@
 import numpy as np
 import mpmath as mp
 from itertools import product
-from functools32 import lru_cache
+
+try:
+	from functools import lru_cache
+except ImportError:
+	from functools32 import lru_cache
 
 @lru_cache(maxsize = 2)
 def cauchy_eigen(mu, dps):
@@ -63,7 +67,7 @@ if __name__ == '__main__':
 	mu = [3.94e+01, 7.89e+01, 1.58e+02, 3.15e+02,]
 	lam = [- 6.31e+02]
 	for i in range(2,5):
-		print 180/np.pi*subspace_angle_V_M_mp(mu[0:i], lam)	
+		print(180/np.pi*subspace_angle_V_M_mp(mu[0:i], lam))	
 	
 
 

@@ -259,7 +259,7 @@ class LagrangePolynomial:
 		if np.isfinite(angle):
 			C0[1:,0] *= np.exp(-1j*angle)
 		else:
-			print "Rotation failed", angle
+			print("Rotation failed", angle)
 			deflation = False
 
 		if deflation:
@@ -296,11 +296,11 @@ class LagrangePolynomial:
 			try:
 				ew = eigvals(H2, B2)
 			except np.linalg.linalg.LinAlgError as e:
-				print "zhat", self.zhat
-				print "a   ", self.a
-				print H2
-				print B2
-				print C0
+				print("zhat", self.zhat)
+				print("a   ", self.a)
+				print(H2)
+				print(B2)
+				print(C0)
 				raise e 
 		else:
 			# Compute the eigenvalues
@@ -311,18 +311,18 @@ class LagrangePolynomial:
 				ew = eigvals(C0, C1, overwrite_a=False)
 			ew = ew[np.isfinite(ew).flatten()]
 			if ew.shape[0] != self.degree:
-				print "a orig"
-				print self.a
-				print "a scaled by norm"
-				print a0
-				print "w orig"
-				print self.w
-				print "w scaled by norm"
-				print w0
-				print "s"
-				print s
-				print "lagrange nodes"
-				print self.zhat 
+				print("a orig")
+				print(self.a)
+				print("a scaled by norm")
+				print(a0)
+				print("w orig")
+				print(self.w)
+				print("w scaled by norm")
+				print(w0)
+				print("s")
+				print(s)
+				print("lagrange nodes")
+				print(self.zhat)
 				assert ew.shape[0] == self.degree, "Error: too many infinite eigenvalues encountered"
 
 		return ew
@@ -361,8 +361,8 @@ if __name__ == '__main__':
 	qzhat = np.array([ np.prod(z - roots) for z in zhat])
 	# print true_roots
 	I = marriage_sort(true_roots, roots)
-	print "Value at roots		  ", np.linalg.norm(p(roots), np.inf)
-	print "Mismatch from true roots", np.linalg.norm(roots[I] - true_roots, np.inf)
-	print "Rel. Backward error	 ", np.linalg.norm(pzhat - qzhat, np.inf)/np.linalg.norm(pzhat)
+	print("Value at roots		  ", np.linalg.norm(p(roots), np.inf))
+	print("Mismatch from true roots", np.linalg.norm(roots[I] - true_roots, np.inf))
+	print("Rel. Backward error	 ", np.linalg.norm(pzhat - qzhat, np.inf)/np.linalg.norm(pzhat))
 	# print true_roots
 	# print roots[I]

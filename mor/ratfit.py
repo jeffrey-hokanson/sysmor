@@ -2,7 +2,7 @@
 from __future__ import division
 import numpy as np
 from numpy.polynomial.legendre import legvander, legroots
-from lagrange import LagrangePolynomial
+from .lagrange import LagrangePolynomial
 
 
 class RationalFit:

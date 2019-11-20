@@ -1,7 +1,7 @@
 import numpy as np
-from ratfit import RationalFit
-from aaa import AAARationalFit
-from marriage import marriage_sort
+from .ratfit import RationalFit
+from .aaa import AAARationalFit
+from .marriage import marriage_sort
 
 class BadStep(Exception):
     pass

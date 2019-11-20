@@ -4,8 +4,8 @@ import scipy.linalg
 import warnings
 from itertools import product
 
-from system import StateSpaceSystem
-from irka import IRKA
+from .system import StateSpaceSystem
+from .irka import IRKA
 
 def hermite_interpolant(z, Hz, Hpz):
 	r""" Construct a Hermite interpolant system given Hermite data

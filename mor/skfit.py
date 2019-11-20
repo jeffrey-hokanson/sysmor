@@ -1,7 +1,7 @@
 import numpy as np
 import scipy
-from ratfit import RationalFit
-from pbfit import PolynomialBasisRationalFit
+from .ratfit import RationalFit
+from .pbfit import PolynomialBasisRationalFit
 from scipy.linalg import lstsq
 
 class SKRationalFit(PolynomialBasisRationalFit):
@@ -66,7 +66,7 @@ class SKRationalFit(PolynomialBasisRationalFit):
 			self.a, self.b = compute_ab(A)	
 		elif self.init == 'aaa':
 			if self.verbose:
-				print "Initializing SK iteration with AAA"
+				print("Initializing SK iteration with AAA")
 			lam0 = self._init_aaa()
 			self.b = self._convert_lam0(lam0)
 
@@ -92,7 +92,7 @@ class SKRationalFit(PolynomialBasisRationalFit):
 				x = np.hstack([a,b])
 				r, J = self.plain_residual_jacobian(x)
 				g = np.dot(J.T, r)
-				print "%3d delta-b %5.5e, ||r|| %5.5e gradient norm %5.5e" % (it, move, np.linalg.norm(r), np.linalg.norm(g))
+				print("%3d delta-b %5.5e, ||r|| %5.5e gradient norm %5.5e" % (it, move, np.linalg.norm(r), np.linalg.norm(g)))
 			
 			# Update values
 			self.a = a	
@@ -124,17 +124,17 @@ if __name__ == '__main__':
 		denominator_basis = 'legendre', numerator_basis = 'legendre')
 
 	sk.fit(z,h)
-	print "residual norm (SK): %5.5e" % np.linalg.norm(sk(z) - h)
+	print("residual norm (SK): %5.5e" % np.linalg.norm(sk(z) - h))
 	# Check gradient at optimizer:
 	# Albeit this is the VARPRO-ed Jacobian
 	x = np.hstack([sk.a, sk.b])
 	r, J = sk.plain_residual_jacobian(x)
-	print "gradient norm (SK): %5.5e" % (np.linalg.norm(np.dot(J.T, r)),)
+	print("gradient norm (SK): %5.5e" % (np.linalg.norm(np.dot(J.T, r)),))
 
 	# Same for pb
 	pb.fit(z,h)
 	r, J = pb.residual_jacobian(pb.b)
-	print "residual norm (PB): %5.5e" % np.linalg.norm(pb(z) - h)
-	print "gradient norm (PB): %5.5e" % (np.linalg.norm(np.dot(J.T, r)),)
+	print("residual norm (PB): %5.5e" % np.linalg.norm(pb(z) - h))
+	print("gradient norm (PB): %5.5e" % (np.linalg.norm(np.dot(J.T, r)),))
 
-	print "mismatch (PB) - (SK): %5.5e" % (np.linalg.norm(pb(z) - sk(z)),)	
+	print("mismatch (PB) - (SK): %5.5e" % (np.linalg.norm(pb(z) - sk(z)),))	

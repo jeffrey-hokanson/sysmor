@@ -1,7 +1,7 @@
 from __future__ import division
 import numpy as np
-from lagrange import LagrangePolynomial
-from pgf import PGF
+from .lagrange import LagrangePolynomial
+from .pgf import PGF
 from warnings import catch_warnings
 
 
@@ -726,5 +726,5 @@ if __name__ == '__main__':
 	from demos import build_cdplayer
 
 	model = build_cdplayer()
-	print "H2 Norm = %1.2e" % model.norm()
-	print (model - model).norm()
+	print("H2 Norm = %1.2e" % model.norm())
+	print((model - model).norm())
