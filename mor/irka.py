@@ -64,7 +64,7 @@ class IRKA(H2MOR, StateSpaceSystem):
 	xtol: float, optional
 		stopping tolerance
 	"""
-	def __init__(self, rom_dim, real = True, maxiter = 200, flipping = True, verbose = True, ftol = 1e-7, lamtol = 1e-6, print_norm = True):
+	def __init__(self, rom_dim, real = True, maxiter = 1000, flipping = True, verbose = True, ftol = 1e-7, lamtol = 1e-6, print_norm = True):
 		H2MOR.__init__(self, rom_dim, real = real)
 		assert self.real, "Implementation only handles real approximating systems"
 		#assert rom_dim % 2 == 0, "Only even recovered systems currently supported"
