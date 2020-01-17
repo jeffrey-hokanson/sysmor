@@ -1,11 +1,12 @@
 from __future__ import division
 import numpy as np
 from scipy.linalg import solve_triangular, cholesky, svdvals
+from warnings import catch_warnings
 from .system import StateSpaceSystem, PoleResidueSystem, ZeroSystem
 from .h2mor import H2MOR
 from .pffit import PartialFractionRationalFit
 from .cauchy import cauchy_ldl, cauchy_hermitian_svd 
-from .marriage import marriage_sort
+from .marriage import hungarian_sort
 from .subspace import subspace_angle_V_M_mp
 
 
@@ -37,8 +38,8 @@ def subspace_angle_V_M(mu, lam, L = None, d = None, p = None):
 	"""
 	mu = np.atleast_1d(np.array(mu, dtype = np.complex))
 	lam = np.atleast_1d(np.array(lam, dtype = np.complex))
-	assert np.all(mu.real > 0), "mu must be in right half plane"
-	assert np.all(lam.real < 0), "lam must be in left half plane"
+	assert np.all(mu.real >= 0), "mu must be in right half plane"
+	assert np.all(lam.real <= 0), "lam must be in left half plane"
 
 	# Compute Cholesky factorization of the left matrix
 	if (L is None) or (d is None) or (p is None):
@@ -222,11 +223,11 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 		Tolerance for change in successive iterations of the reduced order model
 	cond_max: float, positive
 		Maximum condition number of M before iteration terminates
-	mu_growth: float, positive
+	growth: float, positive
 		
 	"""
 	def __init__(self, rom_dim, real = True, maxiter = 1000, verbose = False, ftol = 1e-9, 
-		cond_max= 1e15, mu_growth = 10, print_norm = False, spectral_abscissa = None):
+		cond_max= 1e15, growth = 10, print_norm = False, spectral_abscissa = None):
 		H2MOR.__init__(self, rom_dim, real = real)
 		self.maxiter = maxiter
 		self.verbose = verbose
@@ -234,7 +235,7 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 		self.cond_max = cond_max
 		self.over_determine = 2
 		self.print_norm = print_norm
-		self.mu_growth = mu_growth
+		self.growth = growth
 		self._spectral_abscissa = spectral_abscissa
 
 	def _mu_init(self, H):
@@ -248,29 +249,32 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 				mu_imag = np.array([-1,1])*np.max(np.abs(mu_imag))
 			#mu0 = np.abs(lam.real) + 1j*lam.imag
 			mu_real = -np.max(lam.real)
-			mu0 = mu_real + 1j*np.linspace(mu_imag[0], mu_imag[1], 6)
+			mu0 = mu_real + 1j*np.linspace(mu_imag[0], mu_imag[1], 10)
 			#mu0 = mu_real + 1j*np.linspace(mu_imag[0], mu_imag[1], 2*self.rom_dim+2)
 			#mu0 = mu_real + 1j*lam.imag
 			if self.real:
-				I = marriage_sort(mu0, mu0.conjugate())
+				I = hungarian_sort(mu0, mu0.conjugate())
 				mu0 = 0.5*(mu0 + mu0[I].conjugate())
 			return mu0	
 		raise NotImplementedError
 
 	def _fit(self, H, mu0 = None):
 		# If a spectral abscissa hasn't been provided, use that of the FOM
-		if self._spectral_abscissa is None:
-			try:
-				self._spectral_abscissa = H.spectral_abscissa()
-			except:
-				pass	
+		#if self._spectral_abscissa is None:
+		#	try:
+		#		self._spectral_abscissa = H.spectral_abscissa()
+		#	except:
+		#		pass	
+		self._spectral_abscissa = 0
 	
 		if mu0 is None:
 			mu0 = self._mu_init(H)
 		mu = np.array(mu0, dtype = np.complex)
-		lam_proj = None
 		Hr = ZeroSystem(H.output_dim, H.input_dim)
-		
+
+		lam_proj = None
+		valid_poles = np.array([])		
+
 		# Outer loop
 		for it in range(self.maxiter):
 			Hr_old = Hr
@@ -283,17 +287,14 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			else: 
 				rom_dim = ((n-self.over_determine)//2)
 				rom_dim = max(1, rom_dim)
+
 			rom_dim = min(self.rom_dim, rom_dim)
 
-
-	
 			# Compute the weight matrix
 			L,d,p = cauchy_ldl(mu)
 
 			# Compute the condition number
-			# TODO: Do we want remove this SVD computation to improve wall-clock performance
-			# since we work with the LDL* factorization naively?
-			U,s,VH = cauchy_hermitian_svd(mu, L = L, d = d, p = p)
+			s = svdvals(L @ np.diag(np.sqrt(d)))**2 
 
 			if np.min(s) == 0:
 				if self.verbose:
@@ -347,87 +348,90 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 				res_norm1 = np.inf
 
 			# Initialization based on previous poles
-			if (lam_proj is not None) and len(lam_proj) == Hr2.n:
-				try:
-					#raise ValueError
-					# Sometimes numerical issues with initialization cause this to 
-					# fail, so we catch these exceptions 
-					Hr2.fit(mu, H_mu, W = M, lam0 = lam_proj)
-					res_norm2 = Hr2.residual_norm()
-					# Set the reduced order model to be the smaller of the two
-					if res_norm2 < res_norm1:
-						Hr = Hr2
-						res_norm = res_norm2
-					else:
-						Hr = Hr1
-						res_norm = res_norm1
-				except (np.linalg.linalg.LinAlgError, ValueError):
-					Hr = Hr1
-					res_norm2 = np.inf
-					res_norm = res_norm1
+			if len(valid_poles) == rom_dim:
+				for lam0 in valid_poles:
+					print(lam0.real, '\t', lam0.imag)
+				Hr2.fit(mu, H_mu, W = M, lam0 = valid_poles)
+				res_norm2 = Hr2.residual_norm()
 			else:
-				Hr = Hr1
 				res_norm2 = np.inf
-				res_norm = res_norm1
 
-			if res_norm == np.inf:
-				if self.verbose:
-					print("Could not find valid reduced order model")
+			if not (np.isfinite(res_norm1) or np.isfinite(res_norm2)):
+				if verbose: 
+					print("Both initializations failed")
 				break
+		
+			if res_norm1 < res_norm2:
+				res_norm = res_norm1
+				Hr = Hr1
+			else:
+				res_norm = res_norm2
+				Hr = Hr2
+
+			###################################################################
+			# Update the list of valid poles
+			###################################################################
 
 			# Convert into a pole-residue representation
 			lam, rho = Hr.pole_residue()
-			if self.verbose >= 50:
-				print("b  ", Hr.b)
-				print("lam", lam)	
-			Hr = PoleResidueSystem(lam, rho)	
+			I = np.argsort(-lam.imag)
+			lam = lam[I]
+			rho = rho[I]
 
-			###################################################################
-			# Append new sample mu
-			###################################################################
+			valid = np.ones(len(lam), dtype = np.bool)
 
-			# Construct candidates projected onto interior of nearby mu-constrained box
-			lam_real = np.maximum(-self.mu_growth*np.max(mu.real)*np.ones(lam.shape), lam.real)
-			lam_real = np.minimum(-(1./self.mu_growth)*np.min(mu.real)*np.ones(lam.shape), lam_real)
-			lam_imag = np.maximum(self.mu_growth*np.min(mu.imag), np.minimum(self.mu_growth*np.max(mu.imag), lam.imag))
-			# Ensure the real part is to the left of the specified spectral abscissa
-			lam_real = np.minimum(lam_real, self._spectral_abscissa*np.ones(lam.shape))
-			lam_proj = lam_real + 1j*lam_imag
-
-			# Make sure candidates are sufficiently far away from existing samples
-			tol = 1e-8
-			while True:
-				lam_can = np.array([ lam_i for lam_i in lam_proj if np.min(np.abs(-lam_i.conj() - mu)) > tol])
-				if len(lam_can) >0:
-					break
-				tol *= 0.1
+			real_left = np.min(-mu.real)
+			valid = valid & (lam.real >= real_left * self.growth)
 			
-			# Only consider positive imaginary part if we are going to include the conjugate automatically
-			if self.real:
-				lam_can = lam_can[lam_can.imag >= 0]
-			else:
-				lam_can = lam_can
+			real_right = np.max(-mu.real)
+			valid = valid & (lam.real <= real_right / self.growth)
 
+			imag_top = np.max(mu.imag)
+			valid = valid & (lam.imag <= imag_top * self.growth)
 
-			# Find the largest subspace angle 
-			max_angles = np.zeros(len(lam_can))
-			new_conds = np.zeros(len(lam_can))
-			for i in range(len(lam_can)):
-				max_angles[i] = np.max(subspace_angle_V_M(mu, lam_can[i], L = L, d = d, p = p))
-				if self.real and lam_can[i].imag !=0:
-					mu_new = np.hstack([ mu, -lam_can[i].conj(), -lam_can[i] ])
-				else:
-					mu_new = np.hstack([ mu, -lam_can[i].conj() ])
+			imag_bot = np.min(mu.imag)
+			valid = valid & (lam.imag >= imag_bot * self.growth)
 
-			k = np.nanargmax(max_angles) 
-			max_angle = np.nanmax(max_angles)
-			# New interpolation point
-			mu_star = -lam_can[k].conj()
-	
+			# Separation of poles
+			for i in range(len(lam)):
+				valid[i] = valid[i] & np.all(abs(lam[i] - lam[0:i])>1e-8) & np.all(abs(lam[i] - lam[i+1:]) > 1e-8)
+
+			Hr = PoleResidueSystem(lam[valid], rho[valid])	
+			
+			# ACTUALLY DO THE UPDATE
+			if np.all(valid):
+				valid_poles = np.copy(lam)
+			elif len(valid) == len(valid_poles):
+				# Partial update
+				I = hungarian_sort(valid_poles, lam)
+				for j, i in enumerate(I):
+					if valid[i]:
+						valid_poles[j] = lam[i]
+
+			###################################################################
+			# Choose new interpolation point
+			###################################################################
+
+			# Compute the subspace angle for each
+			max_angles = np.nan*np.zeros(len(lam))
+			for i in range(len(lam)):
+				if valid[i]:
+					max_angles[i] = np.max(subspace_angle_V_M(mu, lam[i], L = L, d = d, p = p))
+			try:	
+				k = np.nanargmax(max_angles)
+			except ValueError as e:
+				print("No valid new shifts found")
+				raise e
+
 			if self.verbose >= 10:
 				print("")
-				for i in np.argsort(max_angles):
-					line = "angle %6.2f ; mu %5.2e %+5.2e" %( 180/np.pi*max_angles[i], -lam_can[i].real, lam_can[i].imag)
+				for i in range(len(lam)):
+					line = 'angle %10.4f | lam %+5.2e  %+5.2e I ' % (180/np.pi*max_angles[i], lam[i].real, lam[i].imag)
+
+					if valid[i]:
+						line += '   '
+					else:
+						line += ' X '
 
 					if i == k:
 						line += " <=== "
@@ -435,14 +439,18 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 						line += "      "
 				
 					print(line)
+				print("")
 
-			
+			mu_star = -lam[k].conj()
+			max_angle = max_angles[k]
+
 			###################################################################
 			# Evalute termination conditions
 			###################################################################
+			#with catch_warnings(record = True) as w:
 			Hr_norm = Hr.norm()
 			delta_Hr = (Hr - Hr_old).norm()/Hr_norm
-	
+			
 			###################################################################
 			# Print Logging messages
 			###################################################################

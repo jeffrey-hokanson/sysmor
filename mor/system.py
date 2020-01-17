@@ -467,12 +467,11 @@ class StateSpaceSystem(LTISystem):
 		for i in range(self.input_dim):
 			for j in range(self.output_dim):
 				Q = -np.outer(self.B[:,i], self.B[:,i].conjugate())
-				with catch_warnings(RuntimeWarning):
-					try:
-						X = solve_lyapunov(self.A, Q)
-					except RuntimeWarning:
+				with catch_warnings(record = True) as w:
+					X = solve_lyapunov(self.A, Q)
+					if any([isinstance(w_, RuntimeWarning) for w_ in w]):
 						return np.nan
-				norm2_term = np.dot(self.C[j,:], np.dot(X, self.C[j,:].conjugate().T))
+					norm2_term = np.dot(self.C[j,:], np.dot(X, self.C[j,:].conjugate().T))
 				if norm2_term < 0:
 					return np.nan
 				norm2 += norm2_term

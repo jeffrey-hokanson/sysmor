@@ -1,4 +1,6 @@
 import numpy as np
+from scipy.spatial.distance import cdist
+from scipy.optimize import linear_sum_assignment
 
 def marriage_sort(a, b):
 	""" Align two vectors so that entry-wise using the stable marriage algorithm
@@ -91,11 +93,28 @@ def marriage_norm(a, b):
 	I = marriage_sort(a, b)
 	return np.linalg.norm(a - b[I])
 
+
+def hungarian_sort(a, b):
+	r""" Plug in replacement for marriage_sort that uses Hungarian algorithm for an optimal pairing.
+
+	"""
+	a = np.array(a).flatten().reshape(-1,1)
+	b = np.array(b).flatten().reshape(-1,1)
+	assert a.shape == b.shape, "a and b must be the same shape"
+	X = cdist(np.hstack([a.real, a.imag]), np.hstack([b.real, b.imag]))
+	row, col = linear_sum_assignment(X)
+	I = np.argsort(row)
+	return col[I]	
+
+
 if __name__ == "__main__":
 	a = np.arange(11)
 	b = np.arange(11)
 	I = np.random.permutation(11)
-	b = b[I] + 1e-4*np.random.rand(11)
-	I2 = marriage_sort(a,b)
-	print(a)
-	print(b[I2])
+	b = b[I] + 1e0*np.random.rand(11) + 1e0*np.random.rand(11)
+	I2 = hungarian_sort(a,b)
+	I3 = marriage_sort(a, b)
+	for i in range(len(a)):
+		print('%2d %2d: %5.5e %5.5e' % (I2[i], I3[i], abs(a[i] - b[I2[i]]), abs(a[i] - b[I3[i]])))
+	print(np.sum(np.abs(a - b[I2])))
+	print(np.sum(np.abs(a - b[I3])))

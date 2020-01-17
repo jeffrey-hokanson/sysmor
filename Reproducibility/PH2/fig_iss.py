@@ -30,7 +30,7 @@ def run_mor(MOR, rs, prefix, **kwargs):
 		Hr.fit(H)
 
 		err = (H - Hr).norm()/H_norm
-		print "%3d :err %6.2e" % (r, err)
+		print("%3d :err %6.2e" % (r, err))
 		
 		# Save information about overall performance
 		rel_err[i] = err
@@ -95,9 +95,9 @@ def run_quadvf(Ns, r, L, prefix,  **kwargs):
 
 if __name__ == '__main__':
 	ftol = 1e-09
-	rs = np.arange(2,50+2,2)
-	#rs = [20]
-	run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2', verbose = True, print_norm = True, ftol = ftol)
+	#rs = np.arange(2,50+2,2)
+	rs = [10]
+	run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2', verbose = 10, print_norm = True, ftol = ftol)
 	#run_mor(IRKA, rs, 'data/fig_iss_irka', verbose = True, print_norm = True, ftol = ftol)
 	#run_mor(TFIRKA, rs, 'data/fig_iss_tfirka', verbose = True, print_norm = True, ftol = ftol)
 

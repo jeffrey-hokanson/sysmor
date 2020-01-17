@@ -348,7 +348,7 @@ class BarycentricPolynomial(LagrangePolynomial):
 
 
 if __name__ == '__main__':
-	from marriage import marriage_norm, marriage_sort
+	from marriage import marriage_norm, hungarian_sort
 	n = 5
 	zhat = np.exp(2j*np.pi*np.arange(n)/n)
 	zhat = 0.5*zhat + 0.5
@@ -360,7 +360,7 @@ if __name__ == '__main__':
 	# print roots
 	qzhat = np.array([ np.prod(z - roots) for z in zhat])
 	# print true_roots
-	I = marriage_sort(true_roots, roots)
+	I = hungarian_sort(true_roots, roots)
 	print("Value at roots		  ", np.linalg.norm(p(roots), np.inf))
 	print("Mismatch from true roots", np.linalg.norm(roots[I] - true_roots, np.inf))
 	print("Rel. Backward error	 ", np.linalg.norm(pzhat - qzhat, np.inf)/np.linalg.norm(pzhat))

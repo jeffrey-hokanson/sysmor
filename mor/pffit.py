@@ -4,7 +4,7 @@ import warnings
 from scipy.linalg import solve_triangular, lstsq, svd
 from scipy.optimize import least_squares
 from .lagrange import LagrangePolynomial, BarycentricPolynomial
-from .marriage import marriage_sort
+from .marriage import hungarian_sort
 from .ratfit import RationalFit
 from .optfit import OptimizationRationalFit, BadStep
 from .aaa import AAARationalFit
@@ -300,7 +300,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		""" Convert a set of poles into a denominator in a 2-term partial fraction expansion
 		"""
 		# project lam so that it is in the space of acceptable lam
-		I = marriage_sort(lam, lam.conjugate())
+		I = hungarian_sort(lam, lam.conjugate())
 		lam = 0.5*(lam + lam[I].conjugate())
 	
 		# Transform

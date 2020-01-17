@@ -9,7 +9,7 @@ from scipy.sparse.linalg import eigs, spsolve
 
 from .h2mor import H2MOR
 from .system import StateSpaceSystem, PoleResidueSystem, ZeroSystem
-from .marriage import marriage_sort, marriage_norm
+from .marriage import hungarian_sort, marriage_norm
 	
 
 def rational_krylov_approximation(H, mu):
@@ -81,7 +81,7 @@ class IRKA(H2MOR, StateSpaceSystem):
 		mu0 = -lam.conj()
 		
 		if self.real:
-			I = marriage_sort(mu0, mu0.conj())
+			I = hungarian_sort(mu0, mu0.conj())
 			mu0 = 0.5*(mu0 + mu0[I].conj())
 
 		return mu0

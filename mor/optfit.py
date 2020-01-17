@@ -1,7 +1,7 @@
 import numpy as np
 from .ratfit import RationalFit
 from .aaa import AAARationalFit
-from .marriage import marriage_sort
+from .marriage import hungarian_sort
 
 class BadStep(Exception):
     pass
@@ -29,7 +29,7 @@ class OptimizationRationalFit(RationalFit):
 		lam, res = aaa.pole_residue()		
 
 		if self.field == 'real':
-			I = marriage_sort(lam, lam.conjugate())
+			I = hungarian_sort(lam, lam.conjugate())
 			lam = 0.5*(lam + lam[I].conjugate())
 		# If we want stable, flip poles into LHP	
 		if self.stable:
@@ -101,7 +101,7 @@ class OptimizationRationalFit(RationalFit):
 			#print lam_new
 			# Force the new roots to come in conjugate pairs
 			if self.real:
-				I = marriage_sort(lam_new, lam_new.conjugate())
+				I = hungarian_sort(lam_new, lam_new.conjugate())
 				lam_new = 0.5*(lam_new + lam_new[I].conjugate()) 
 
 			# Either use these roots as the initial values 
