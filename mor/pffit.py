@@ -358,9 +358,12 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		jac = lambda b: self.jacobian_real(b)
 		
 		# If we are enforcing a stability constraint, setup the box constraints
+		
+
 		if self.stable:
 			# Push the initial poles slightly into the left half plane	
 			lam0 = np.minimum(lam0.real, np.zeros(lam0.shape)) + 1j*lam0.imag
+			# This will automatically symmetrize the poles
 			b0 = self._lam2b(lam0)
 			
 			# Working through the quadratic formula,

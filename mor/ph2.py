@@ -8,7 +8,7 @@ from .pffit import PartialFractionRationalFit
 from .cauchy import cauchy_ldl, cauchy_hermitian_svd 
 from .marriage import hungarian_sort
 from .subspace import subspace_angle_V_M_mp
-
+from .aaa import AAARationalFit
 
 def subspace_angle_V_M(mu, lam, L = None, d = None, p = None):
 	"""Compute the subspace angles between V and M
@@ -341,8 +341,12 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 				Hr2 = PartialFractionRationalFit(rom_dim-1, rom_dim, field = 'complex', stable = True, **kwargs) 
 			
 			# Default (AAA) initialization
+			aaa = AAARationalFit(rom_dim)
+			aaa.fit(mu, H_mu)
+			lam_aaa, _ = aaa.pole_residue()
+			
 			try:
-				Hr1.fit(mu, H_mu, W = M)
+				Hr1.fit(mu, H_mu, W = M, lam0 = lam_aaa)
 				res_norm1 = Hr1.residual_norm()
 			except (ValueError, np.linalg.linalg.LinAlgError):
 				res_norm1 = np.inf
@@ -424,6 +428,7 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 				raise e
 
 			if self.verbose >= 10:
+				I = hungarian_sort(lam, lam_aaa)
 				print("")
 				for i in range(len(lam)):
 					line = 'angle %10.4f | lam %+5.2e  %+5.2e I ' % (180/np.pi*max_angles[i], lam[i].real, lam[i].imag)
