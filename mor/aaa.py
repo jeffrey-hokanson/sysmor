@@ -85,6 +85,10 @@ class AAARationalFit(RationalFit):
 			if self.tol is not None and np.linalg.norm(residual, np.inf) < self.tol:
 				break
 
+			# Stop if we can no no futher with the data we have	
+			if k >= len(self.f)//2:
+				break
+
 	def _build_loewner(self):
 		""" Construct the Loewner matrix corresponding to the current iterate
 		"""

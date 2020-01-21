@@ -227,13 +227,13 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 		
 	"""
 	def __init__(self, rom_dim, real = True, maxiter = 1000, verbose = False, ftol = 1e-9, 
-		cond_max= 1e15, growth = 10, print_norm = False, spectral_abscissa = None):
+		cond_max= 1e15, growth = 2, print_norm = False, spectral_abscissa = -1e-6):
 		H2MOR.__init__(self, rom_dim, real = real)
 		self.maxiter = maxiter
 		self.verbose = verbose
 		self.ftol = ftol
 		self.cond_max = cond_max
-		self.over_determine = 2
+		self.over_determine = 4
 		self.print_norm = print_norm
 		self.growth = growth
 		self._spectral_abscissa = spectral_abscissa
@@ -246,10 +246,10 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			#mu0 = np.abs(lam.real)+ 1j*lam.imag
 			mu_imag = [np.min(lam.imag), np.max(lam.imag)]
 			if self.real:
-				mu_imag = np.array([-1,1])*np.max(np.abs(mu_imag))
+				mu_imag = np.array([-self.growth,self.growth])*np.max(np.abs(mu_imag))
 			#mu0 = np.abs(lam.real) + 1j*lam.imag
 			mu_real = -np.max(lam.real)
-			mu0 = mu_real + 1j*np.linspace(mu_imag[0], mu_imag[1], 10)
+			mu0 = mu_real + 1j*np.linspace(mu_imag[0], mu_imag[1], 6)
 			#mu0 = mu_real + 1j*np.linspace(mu_imag[0], mu_imag[1], 2*self.rom_dim+2)
 			#mu0 = mu_real + 1j*lam.imag
 			if self.real:
@@ -284,9 +284,11 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			if self.real: 
 				rom_dim = 2*((n-self.over_determine)//4)
 				rom_dim = max(2, rom_dim)
+				rom_dim = min(rom_dim, 2)
 			else: 
 				rom_dim = ((n-self.over_determine)//2)
 				rom_dim = max(1, rom_dim)
+				rom_dim = min(rom_dim, 1)
 
 			rom_dim = min(self.rom_dim, rom_dim)
 
@@ -299,6 +301,10 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			if np.min(s) == 0:
 				if self.verbose:
 					print("Weight matrix singular")
+					print(s)	
+					print('mu')
+					for mu_i in mu:
+						print(mu_i)
 				break
 
 			cond_M = np.max(s)/np.min(s)
@@ -328,8 +334,8 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			kwargs['gtol'] = 3e-16
 			kwargs['ftol'] = 3e-16
 			kwargs['max_nfev'] = 10*self.rom_dim
-			if self._spectral_abscissa is not None:
-				kwargs['spectral_abscissa'] = self._spectral_abscissa
+			#if self._spectral_abscissa is not None:
+			#	kwargs['spectral_abscissa'] = self._spectral_abscissa
 			if self.verbose >= 100:
 				kwargs['verbose'] = 2
 
@@ -370,6 +376,7 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 
 			###################################################################
 			# Update the list of valid poles
+			# This is used for initialization of the next iteration
 			###################################################################
 
 			# Convert into a pole-residue representation
@@ -407,16 +414,29 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 				for j, i in enumerate(I):
 					if valid[i]:
 						valid_poles[j] = lam[i]
+			elif len(valid_poles) == 0:
+				valid_poles = lam[valid]		
 
 			###################################################################
 			# Choose new interpolation point
 			###################################################################
 
+			#real_left = np.min(valid_poles.real)
+			#real_right = np.max(valid_poles.real)
+			#imag_bot = np.min(valid_poles.imag)
+			#imag_top = np.max(valid_poles.imag)
+
+			lam_can = np.copy(lam)
+			lam_can.real = np.maximum(lam_can.real, real_left * self.growth)
+			lam_can.real = np.minimum(lam_can.real, real_right / self.growth)
+			lam_can.real = np.minimum(lam_can.real, self._spectral_abscissa)
+			lam_can.imag = np.minimum(lam_can.imag, imag_top * self.growth)
+			lam_can.imag = np.maximum(lam_can.imag, imag_bot * self.growth)
+
 			# Compute the subspace angle for each
 			max_angles = np.nan*np.zeros(len(lam))
 			for i in range(len(lam)):
-				if valid[i]:
-					max_angles[i] = np.max(subspace_angle_V_M(mu, lam[i], L = L, d = d, p = p))
+				max_angles[i] = np.max(subspace_angle_V_M(mu, lam_can[i], L = L, d = d, p = p))
 			try:	
 				k = np.nanargmax(max_angles)
 			except ValueError as e:
@@ -426,7 +446,9 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			if self.verbose >= 10:
 				print("")
 				for i in range(len(lam)):
-					line = 'angle %10.4f | lam %+5.2e  %+5.2e I ' % (180/np.pi*max_angles[i], lam[i].real, lam[i].imag)
+					line = 'angle %10.4f | ' % (180/np.pi*max_angles[i])
+					line += 'lam %+5.2e  %+5.2e I | ' % (lam[i].real, lam[i].imag)
+					line += 'lam_can %+5.2e  %+5.2e I | ' % (lam_can[i].real, lam_can[i].imag)
 
 					if valid[i]:
 						line += '   '
@@ -441,7 +463,7 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 					print(line)
 				print("")
 
-			mu_star = -lam[k].conj()
+			mu_star = -lam_can[k].conj()
 			max_angle = max_angles[k]
 
 			###################################################################
