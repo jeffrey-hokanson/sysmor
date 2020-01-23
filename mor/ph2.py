@@ -9,6 +9,7 @@ from .cauchy import cauchy_ldl, cauchy_hermitian_svd
 from .marriage import hungarian_sort
 from .subspace import subspace_angle_V_M_mp
 from .aaa import AAARationalFit
+from .vecfit import VFRationalFit
 
 def subspace_angle_V_M(mu, lam, L = None, d = None, p = None):
 	"""Compute the subspace angles between V and M
@@ -227,13 +228,13 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 		
 	"""
 	def __init__(self, rom_dim, real = True, maxiter = 1000, verbose = False, ftol = 1e-9, 
-		cond_max= 1e15, growth = 2, print_norm = False, spectral_abscissa = -1e-6):
+		cond_max= 1e18, growth = 10, print_norm = False, spectral_abscissa = -1e-6):
 		H2MOR.__init__(self, rom_dim, real = real)
 		self.maxiter = maxiter
 		self.verbose = verbose
 		self.ftol = ftol
 		self.cond_max = cond_max
-		self.over_determine = 4
+		self.over_determine = 2
 		self.print_norm = print_norm
 		self.growth = growth
 		self._spectral_abscissa = spectral_abscissa
@@ -242,14 +243,14 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 		if isinstance(H, StateSpaceSystem):
 			#lam = H.poles(which = 'LR', k= 6)
 			#lam = H.poles(which = 'LR', k= max(6,self.rom_dim) )
-			lam = H.poles(which = 'LR', k = self.rom_dim )
+			lam = H.poles(which = 'LR', k = max(self.rom_dim, 4) )
 			#mu0 = np.abs(lam.real)+ 1j*lam.imag
-			mu_imag = [np.min(lam.imag), np.max(lam.imag)]
-			if self.real:
-				mu_imag = np.array([-self.growth,self.growth])*np.max(np.abs(mu_imag))
-			#mu0 = np.abs(lam.real) + 1j*lam.imag
-			mu_real = -np.max(lam.real)
-			mu0 = mu_real + 1j*np.linspace(mu_imag[0], mu_imag[1], 6)
+			#mu_imag = [np.min(lam.imag), np.max(lam.imag)]
+			#if self.real:
+			#	mu_imag = np.array([-self.growth,self.growth])*np.max(np.abs(mu_imag))
+			mu0 = np.abs(lam.real) + 1j*lam.imag
+			#mu_real = -np.max(lam.real)
+			#mu0 = mu_real + 1j*np.linspace(mu_imag[0], mu_imag[1], 6)
 			#mu0 = mu_real + 1j*np.linspace(mu_imag[0], mu_imag[1], 2*self.rom_dim+2)
 			#mu0 = mu_real + 1j*lam.imag
 			if self.real:
@@ -274,6 +275,7 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 
 		lam_proj = None
 		valid_poles = np.array([])		
+		lam = []
 
 		# Outer loop
 		for it in range(self.maxiter):
@@ -284,11 +286,9 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			if self.real: 
 				rom_dim = 2*((n-self.over_determine)//4)
 				rom_dim = max(2, rom_dim)
-				rom_dim = min(rom_dim, 2)
 			else: 
 				rom_dim = ((n-self.over_determine)//2)
 				rom_dim = max(1, rom_dim)
-				rom_dim = min(rom_dim, 1)
 
 			rom_dim = min(self.rom_dim, rom_dim)
 
@@ -350,7 +350,9 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			aaa = AAARationalFit(rom_dim)
 			aaa.fit(mu, H_mu)
 			lam_aaa, _ = aaa.pole_residue()
-			
+			# Flip poles
+			lam_aaa.real = -np.abs(lam_aaa.real)
+
 			try:
 				Hr1.fit(mu, H_mu, W = M, lam0 = lam_aaa)
 				res_norm1 = Hr1.residual_norm()
@@ -358,10 +360,11 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 				res_norm1 = np.inf
 
 			# Initialization based on previous poles
-			if len(valid_poles) == rom_dim:
-				for lam0 in valid_poles:
-					print(lam0.real, '\t', lam0.imag)
-				Hr2.fit(mu, H_mu, W = M, lam0 = valid_poles)
+			if len(lam) == rom_dim:
+				#vf = VFRationalFit(rom_dim - 1, rom_dim, W = M)
+				#vf.fit(mu, H_mu)
+				#lam_vf, rho_vf = vf.pole_residue()
+				Hr2.fit(mu, H_mu, W = M, lam0 = lam)
 				res_norm2 = Hr2.residual_norm()
 			else:
 				res_norm2 = np.inf
@@ -388,7 +391,11 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			I = np.argsort(-lam.imag)
 			lam = lam[I]
 			rho = rho[I]
-
+			# sort the aaa poles to match
+			I = hungarian_sort(lam, lam_aaa)
+			lam_aaa = lam_aaa[I]
+		
+			# Determine which poles are valid	
 			valid = np.ones(len(lam), dtype = np.bool)
 
 			real_left = np.min(-mu.real)
@@ -403,57 +410,51 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			imag_bot = np.min(mu.imag)
 			valid = valid & (lam.imag >= imag_bot * self.growth)
 
-			# Separation of poles
+
+			# For poles to be valid, they must also be well separated
 			for i in range(len(lam)):
 				valid[i] = valid[i] & np.all(abs(lam[i] - lam[0:i])>1e-8) & np.all(abs(lam[i] - lam[i+1:]) > 1e-8)
 
-			Hr = PoleResidueSystem(lam[valid], rho[valid])	
 			
-			# ACTUALLY DO THE UPDATE
-			if np.all(valid):
-				valid_poles = np.copy(lam)
-			elif len(valid) == len(valid_poles):
-				# Partial update
-				I = hungarian_sort(valid_poles, lam)
-				for j, i in enumerate(I):
-					if valid[i]:
-						valid_poles[j] = lam[i]
-			elif len(valid_poles) == 0:
-				valid_poles = lam[valid]		
 
 			###################################################################
 			# Choose new interpolation point
 			###################################################################
 
-			#real_left = np.min(valid_poles.real)
-			#real_right = np.max(valid_poles.real)
-			#imag_bot = np.min(valid_poles.imag)
-			#imag_top = np.max(valid_poles.imag)
-
 			lam_can = np.copy(lam)
-			lam_can.real = np.maximum(lam_can.real, real_left * self.growth)
-			lam_can.real = np.minimum(lam_can.real, real_right / self.growth)
-			lam_can.real = np.minimum(lam_can.real, self._spectral_abscissa)
-			lam_can.imag = np.minimum(lam_can.imag, imag_top * self.growth)
-			lam_can.imag = np.maximum(lam_can.imag, imag_bot * self.growth)
+			# Use AAA poles when a pole of Hr is invalid			
+			lam_can[~valid] = lam_aaa[~valid]
 
 			# Compute the subspace angle for each
 			max_angles = np.nan*np.zeros(len(lam))
 			for i in range(len(lam)):
 				max_angles[i] = np.max(subspace_angle_V_M(mu, lam_can[i], L = L, d = d, p = p))
-			try:	
-				k = np.nanargmax(max_angles)
-			except ValueError as e:
-				print("No valid new shifts found")
-				raise e
+
+			while True:
+				try:	
+					k = np.nanargmax(max_angles)
+				except ValueError as e:
+					print("No valid new shifts found")
+					raise e
+
+				mu_star = -lam_can[k].conj()
+				max_angle = max_angles[k]
+				# Ensure we have a distinct mu
+				if np.min(np.abs(mu_star - mu)) == 0:
+					max_angles[k] = np.nan
+				else:
+					break			
+
+	
 
 			if self.verbose >= 10:
-				I = hungarian_sort(lam, lam_aaa)
 				print("")
 				for i in range(len(lam)):
 					line = 'angle %10.4f | ' % (180/np.pi*max_angles[i])
 					line += 'lam %+5.2e  %+5.2e I | ' % (lam[i].real, lam[i].imag)
+					line += 'rho %+5.2e  %+5.2e I | ' % (rho[i].real, rho[i].imag)
 					line += 'lam_can %+5.2e  %+5.2e I | ' % (lam_can[i].real, lam_can[i].imag)
+					line += 'lam_aaa %+5.2e  %+5.2e I | ' % (lam_aaa[i].real, lam_aaa[i].imag)
 
 					if valid[i]:
 						line += '   '
@@ -468,13 +469,15 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 					print(line)
 				print("")
 
-			mu_star = -lam_can[k].conj()
-			max_angle = max_angles[k]
+			
 
 			###################################################################
 			# Evalute termination conditions
 			###################################################################
-			#with catch_warnings(record = True) as w:
+			
+			lam[~valid] = lam_aaa[~valid]
+			rho[~valid] = 0.
+			Hr = PoleResidueSystem(lam, rho)	
 			Hr_norm = Hr.norm()
 			delta_Hr = (Hr - Hr_old).norm()/Hr_norm
 			
@@ -483,7 +486,7 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			###################################################################
 			if self.verbose:
 				# Header
-				if it == 0:
+				if it == 0 or self.verbose >= 10:
 					head1 = "  it | dim | FOM Evals | delta Hr |  cond M  |       mu star      | res norm | max angle |  init  |"
 					head2 = "-----|-----|-----------|----------|----------|--------------------|----------|-----------|--------|"
 					if self.print_norm:

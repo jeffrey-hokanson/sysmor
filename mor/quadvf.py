@@ -34,6 +34,7 @@ class QuadVF(H2MOR, PoleResidueSystem):
 		
 		self.real = real
 		self.verbose = verbose
+		self.history = []
 
 	def _fit(self, H, lam0 = None):
 		if H.isreal:
@@ -48,7 +49,10 @@ class QuadVF(H2MOR, PoleResidueSystem):
 
 		# Construct the locations to sample with positive real part
 		mu = self.L*1.j/np.tan(np.arange(1,2*self.N+1)*np.pi/(2*self.N+1))
-
+		# Ensure these are numerically conjugate pairs to all digits
+		mu = 0.5*(mu + mu[::-1].conj())
+	
+	
 		if lam0 is None:
 			# Estimate where to place starting poles
 			# Alternatively, should we use log spaced like in DGB15, p. A632?
@@ -130,6 +134,16 @@ class QuadVF(H2MOR, PoleResidueSystem):
 			lam[I] = -lam[I].conj()
 			# TODO: Is this right way to handle the residues?
 			rho[I] = rho[I].conj()
+
+		
+		self.history.append({
+			'mu': np.copy(mu), 
+			'Hr': PoleResidueSystem(lam, rho), 
+			'total_fom_evals': self._total_fom_evals,
+			'total_fom_der_evals': self._total_fom_der_evals,
+			'total_linear_solves': self._total_linear_solves,
+		})
+
 		PoleResidueSystem.__init__(self, lam, rho)
 
 if __name__ == '__main__':

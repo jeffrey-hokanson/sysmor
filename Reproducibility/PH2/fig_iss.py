@@ -1,8 +1,10 @@
 import numpy as np
+from scipy.linalg import svdvals
 from mor import ProjectedH2MOR, IRKA, TFIRKA, QuadVF
-from mor import cauchy_hermitian_svd
+from mor import cauchy_ldl
 from mor.demos import build_iss
 from mor.pgf import PGF
+import argparse
 
 
 def run_mor(MOR, rs, prefix, **kwargs):
@@ -28,9 +30,8 @@ def run_mor(MOR, rs, prefix, **kwargs):
 			
 		Hr = MOR(r, **kwargs)
 		Hr.fit(H)
-
 		err = (H - Hr).norm()/H_norm
-		print("%3d :err %6.2e" % (r, err))
+		print("%3d :err %15.10e" % (r, err))
 		
 		# Save information about overall performance
 		rel_err[i] = err
@@ -51,8 +52,14 @@ def run_mor(MOR, rs, prefix, **kwargs):
 		# Condition number
 		cond_M = np.zeros(len(Hr.history))
 		for i, hist in enumerate(Hr.history):
-			U, s, VH = cauchy_hermitian_svd(hist['mu'])
-			cond_M[i] = np.max(s)/np.min(s)
+			try:
+				if np.any(hist['mu'].real == 0):
+					raise ValueError
+				L,d,p = cauchy_ldl(hist['mu'])
+				s = svdvals(L @ np.diag(np.sqrt(d)))**2 
+				cond_M[i] = np.max(s)/np.min(s)
+			except ValueError:
+				cond_M[i] = np.nan
 
 		pgf = PGF()
 		pgf.add('fom_evals', fom_eval_hist)
@@ -94,12 +101,25 @@ def run_quadvf(Ns, r, L, prefix,  **kwargs):
 	pgf.write(prefix + '_%02d_L%d.dat' % (r, L))
 
 if __name__ == '__main__':
-	ftol = 1e-09
-	#rs = np.arange(2,50+2,2)
-	rs = [4]
-	run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2', verbose = 10, print_norm = True, ftol = ftol)
-	#run_mor(IRKA, rs, 'data/fig_iss_irka', verbose = True, print_norm = True, ftol = ftol)
-	#run_mor(TFIRKA, rs, 'data/fig_iss_tfirka', verbose = True, print_norm = True, ftol = ftol)
+	parser = argparse.ArgumentParser(description='Run ISS example.')
+	parser.add_argument('rs', type = int, nargs = '*', default = np.arange(2,52,2), help = "ROM dimensions to run")
+	parser.add_argument('--alg', type = str, default = 'PH2', help = 'which algorithm to use')
+	args = parser.parse_args()
+
+	ftol = 1e-9
+	rs = args.rs
+	alg = args.alg.lower()
+
+	if alg == 'quadvf':
+		run_mor(QuadVF, rs, 'data/fig_iss_quadvf', verbose = 10, N = 100, ftol = ftol, L = 10)
+	elif alg == 'ph2':
+		run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2', verbose = 10, print_norm = True, ftol = ftol)
+	elif alg == 'irka':
+		run_mor(IRKA, rs, 'data/fig_iss_irka', verbose = True, print_norm = True, ftol = ftol)
+	elif alg == 'tfirka':
+		run_mor(TFIRKA, rs, 'data/fig_iss_tfirka', verbose = True, print_norm = True, ftol = ftol)
+	else:
+		print("Unknown algorithm")
 
 	#Ns = np.arange(25, 1000+1,1)
 	#Ls = [10]

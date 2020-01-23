@@ -18,7 +18,7 @@ class VFRationalFit(PoleResidueRationalFit):
 		Maximum number of iterations
 	"""
 	def __init__(self, m, n, maxiter = 100, verbose = False, 
-		tol = 1e-10, W = None, normalize = 'monic', **kwargs):
+		tol = 1e-10, normalize = 'monic', **kwargs):
 
 		assert m + 1 >= n, "Vector fitting can only handle degree m >= n - 1"
 		self.m = m
@@ -27,23 +27,25 @@ class VFRationalFit(PoleResidueRationalFit):
 		self.maxiter = maxiter
 		self.verbose = verbose
 		self.tol = tol
-		self.W = W
-		self.real = False
+		self.field = 'complex'
 		self.normalize = normalize
-
+		
 		# TODO: checkme
 		if 'init' not in kwargs:
 			kwargs['init'] = 'linearize' 
 
-	def _fit(self, lam0):
+	def _fit(self, lam0, W = None):
 		if lam0 is None:
 			lam0 = self._generate_zhat(self.n - 1)
 			# need to make sure lam0 is not at any z
 			while min([np.min(np.abs(lam0_ - self.z)) for lam0_ in lam0]) < 1e-5:
 				lam0 += 1e-5
 
+		if W is None:
+			W = lambda x: x			
+
 		lam = np.copy(lam0)
-		N = len(self.h)
+		N = len(self.f)
 
 		if self.m - self.n >= 0:	
 			V = self.legendre_vandmat(self.m - self.n, self.z)
@@ -58,9 +60,8 @@ class VFRationalFit(PoleResidueRationalFit):
 			Phi = np.hstack([C, V]) 
 		
 			# Setup, and optionally weight the linear system for the update step
-			A = np.hstack( [Phi, -(Psi.T*self.h).T])
-			if self.W is not None:
-				A = np.dot(self.W, A)	
+			A = np.hstack( [Phi, -(Psi.T*self.f).T])
+			A = W(A)
 			
 			# Compute the smallest singular values to solve the system
 			if self.normalize == 'svd':
@@ -88,9 +89,8 @@ class VFRationalFit(PoleResidueRationalFit):
 				# Evaluate the polynomials
 				p = np.dot(Phi, a)
 				q = np.dot(Psi, b)
-				mismatch = p/q - self.h
-				if self.W is not None:
-					mismatch = np.dot(self.W, mismatch)
+				mismatch = p/q - self.f
+				mismatch = W(mismatch)
 				res = np.linalg.norm(mismatch)
 				q_norm = np.linalg.norm(q - 1)
 
@@ -115,7 +115,7 @@ class VFRationalFit(PoleResidueRationalFit):
 		# Copy over the values needed for the pole-residue expansion
 		self.lam = np.copy(lam)
 		self.rho_c = np.copy(a)	
-		
+		self.rho = self.rho_c[0:len(lam)]	
 
 if __name__ == '__main__':
 	import scipy.io
