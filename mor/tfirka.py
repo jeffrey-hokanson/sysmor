@@ -29,7 +29,8 @@ def hermite_interpolant(z, Hz, Hpz):
 	Br = Hz
 	Cr = Hz
 
-	with warnings.catch_warnings(scipy.linalg.LinAlgWarning):
+	with warnings.catch_warnings():
+		warnings.simplefilter('ignore', scipy.linalg.LinAlgWarning)
 		# Now invert E to make into a state-space system
 		# This can be ill-conditioned early on, but generally resolves itself
 		Ar = scipy.linalg.solve(Er, Ar)
@@ -45,7 +46,7 @@ class TFIRKA(IRKA):
 	xtol: float, optional
 		stopping tolerance
 	"""
-	def __init__(self, rom_dim, real = True, maxiter = 1000, flipping = True, verbose = True, ftol = 1e-7, lamtol = 1e-6, print_norm = True):
+	def __init__(self, rom_dim, real = True, maxiter = 1000, flipping = True, verbose = True, ftol = 1e-7, lamtol = 1e-6, print_norm = False):
 		IRKA.__init__(self, rom_dim, real = real, maxiter = maxiter,
 			 flipping = flipping, verbose = verbose, ftol = ftol, lamtol = lamtol, print_norm = print_norm)
 

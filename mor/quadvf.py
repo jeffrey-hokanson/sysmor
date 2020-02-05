@@ -36,7 +36,7 @@ class QuadVF(H2MOR, PoleResidueSystem):
 		self.verbose = verbose
 		self.history = []
 
-	def _fit(self, H, lam0 = None):
+	def _fit(self, H, lam0 = None, mu0 = None):
 		if H.isreal:
 			# As H is real, we can half the number of samples used in the Vector Fitting step
 			return self._fit_real(H, lam0 = lam0)

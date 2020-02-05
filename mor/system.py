@@ -309,7 +309,7 @@ class TransferSystem(LTISystem):
 				Hz[i] = self._scaling*(self._H(z[i]).reshape(self.output_dim, self.input_dim))
 			
 			if der:
-				Hzp = np.zeros((len(z), self.output_dim, self.input_dim), dtype = np.complex)
+				Hpz = np.zeros((len(z), self.output_dim, self.input_dim), dtype = np.complex)
 				for i in range(len(z)):
 					Hpz[i] = self._scaling*(self._Hder(z[i]).reshape(self.output_dim, self.input_dim))
 		
@@ -330,6 +330,43 @@ class TransferSystem(LTISystem):
 		ret = deepcopy(self)
 		ret._scaling *= other
 		return ret
+
+
+	def __sub__(self, other):	
+		transfer = lambda z: self.transfer(z) - other.transfer(z)
+		transfer_der = lambda z: self.transfer(z) - other.transfer(z)
+		isreal = self.isreal and other.isreal
+		lim_zH = [self.lim_zH[0] - other.lim_zH[0], self.lim_zH[1] - other.lim_zH[1]]
+		return TransferSystem(transfer, transfer_der = transfer_der, lim_zH  = lim_zH)
+
+	def __rsub__(self, other):	
+		transfer = lambda z: other.transfer(z) - self.transfer(z)
+		transfer_der = lambda z: other.transfer(z) - self.transfer(z)
+		isreal = self.isreal and other.isreal
+		lim_zH = [other.lim_zH[0] - self.lim_zH[0], other.lim_zH[1] - self.lim_zH[1]]
+		return TransferSystem(transfer, transfer_der = transfer_der, lim_zH  = lim_zH)
+	
+	def __add__(self, other):	
+		transfer = lambda z: self.transfer(z) + other.transfer(z)
+		transfer_der = lambda z: self.transfer(z) + other.transfer(z)
+		isreal = self.isreal and other.isreal
+		lim_zH = [self.lim_zH[0] + other.lim_zH[0], self.lim_zH[1] + other.lim_zH[1]]
+		return TransferSystem(transfer, transfer_der = transfer_der, lim_zH  = lim_zH)
+	
+	def __radd__(self, other):	
+		transfer = lambda z: self.transfer(z) + other.transfer(z)
+		transfer_der = lambda z: self.transfer(z) + other.transfer(z)
+		isreal = self.isreal and other.isreal
+		lim_zH = [self.lim_zH[0] + other.lim_zH[0], self.lim_zH[1] + other.lim_zH[1]]
+		return TransferSystem(transfer, transfer_der = transfer_der, lim_zH  = lim_zH)
+
+	def __rsub__(self, other):	
+		transfer = lambda z: other.transfer(z) - self.transfer(z)
+		transfer_der = lambda z: other.transfer(z) - self.transfer(z)
+		isreal = self.isreal and other.isreal
+		lim_zH = [other.lim_zH[0] - self.lim_zH[0], other.lim_zH[1] - self.lim_zH[1]]
+		return TransferSystem(transfer, transfer_der = transfer_der, lim_zH  = lim_zH)
+
 
 class StateSpaceSystem(LTISystem):
 	r"""Represents a continuous-time system specified in state-space form
@@ -704,6 +741,10 @@ class PoleResidueSystem(SparseStateSpaceSystem):
 	@property
 	def C(self):
 		return np.ones((1, len(self._poles)))
+
+	@property
+	def E(self):
+		return spdiag(np.ones(len(self._poles))) 
 
 	def poles(self):
 		return self._poles

@@ -203,7 +203,7 @@ def build_iss(sparse = False):
 	return StateSpaceSystem(A, B, C)
 
 
-def build_bg_delay(n = 1000, tau = 0.1, chi = 4):
+def build_subg_delay(n = 500, tau = 1, rho = 5, eps = 0.01):
 	r""" Delay Differential Equation Example of Beattie and Gugercin
 
 
@@ -214,30 +214,101 @@ def build_bg_delay(n = 1000, tau = 0.1, chi = 4):
 	"""
 
 	I = ss.eye(n)
+	
+	# Serkan's Matlab code
+	# T=diag(ones(dimN-1,1),1)+diag(ones(dimN-1,1),-1); T(1,1)=1; T(dimN,dimN)=1;
 	T = ss.diags(np.ones((2,n-1)), [1,-1], shape = (n,n))
 	data = np.array([1,1])
 	row = np.array([0,n-1])
 	col = np.array([0,n-1])
 	T += ss.coo_matrix(( data, (row, col)), shape = (n,n)) 
-	E = chi*I + T
-	A0 = 3/tau * (T - chi * I)
-	A1 = 1/tau * (T - chi * I)
+
+	
+	# Serkan's Matlab code
+	#E=(2/sqrt(1-epsilon))*eye(dimN,dimN) + T;
+	#E = 2/np.sqrt(1-eps)*I + T
+	#A0= (-1/sqrt(1-epsilon))*(2/tau)*(1+(1/rho))*eye(dimN,dimN) + (1/tau)*(1+(1/rho))*T;
+	#A0 = (-1/np.sqrt(1-eps))*(2/tau)*(1+(1/rho))*I + (1/tau)*(1+(1/rho))*T
+	#A1=(-1/sqrt(1-epsilon))*(2/tau)*(-1+(1/rho))*eye(dimN,dimN) + (1/tau)*(-1+(1/rho))*T;
+	#A1 = (-1/np.sqrt(1-eps))*(2/tau)*(-1+(1/rho))*I + (1/tau)*(-1+(1/rho))*T
+
+	A1 = rho*I + T
+	A2 = 1/tau*(1/eps + 1)*(T - rho*I)
+	A3 = 1/tau*(1/eps - 1)*(T - rho*I)
 
 	B = np.zeros((n,1))
 	B[0,0] = 1
+	B[1,0] = 1
 	C = np.zeros((1,n))
 	C[0,0] = 1
+	C[0,1] = 1
+	#H = lambda z: C @ ss.linalg.spsolve( z * E - A0 - np.exp(-tau*z)* A1, B)
+	#Hder = lambda z: - C @ ss.linalg.spsolve( z * E - A0 - np.exp(-tau*z)* A1, 
+	#						(E + tau * np.exp(-tau*z)*A1) @ ss.linalg.spsolve( z*E - A0 - np.exp(-tau*z)*A1, B))
+	
+	H = lambda z: C @ ss.linalg.spsolve( z * A1 + A2 +  np.exp(-tau*z) * A3, B)
+	Hder = lambda z: - C @ ss.linalg.spsolve( z * A1 + A2 + np.exp(-tau*z) * A3, 
+							(A1 + tau * np.exp(-tau*z)*A3) @ ss.linalg.spsolve( z * A1 + A2 + np.exp(-tau*z) * A3, B))
+
+	
+	# Limits 
+	lim_zH = C @ ss.linalg.spsolve(A1, B)	
+	sys = TransferSystem(H, transfer_der = Hder, isreal = True, lim_zH = [lim_zH, lim_zH] )
+	sys.A1 = A1
+	sys.A2 = A2
+	sys.A3 = A3
+	sys.tau = tau
+	sys.eps = eps
+	sys.rho = rho
+	return sys
+
+def build_bg_delay(n = 1000, tau = 1, rho = 0.1, eps = 0.99):
+	r""" Delay Differential Equation Example of Beattie and Gugercin
+
+
+	.. math::
+		
+
+
+	"""
+
+	I = ss.eye(n)
+	
+	# Serkan's Matlab code
+	# T=diag(ones(dimN-1,1),1)+diag(ones(dimN-1,1),-1); T(1,1)=1; T(dimN,dimN)=1;
+	T = ss.diags(np.ones((2,n-1)), [1,-1], shape = (n,n))
+	data = np.array([1,1])
+	row = np.array([0,n-1])
+	col = np.array([0,n-1])
+	T += ss.coo_matrix(( data, (row, col)), shape = (n,n)) 
+
+	
+	# Serkan's Matlab code
+	#E=(2/sqrt(1-epsilon))*eye(dimN,dimN) + T;
+	E = 2/np.sqrt(1-eps)*I + T
+	#A0= (-1/sqrt(1-epsilon))*(2/tau)*(1+(1/rho))*eye(dimN,dimN) + (1/tau)*(1+(1/rho))*T;
+	A0 = (-1/np.sqrt(1-eps))*(2/tau)*(1+(1/rho))*I + (1/tau)*(1+(1/rho))*T
+	#A1=(-1/sqrt(1-epsilon))*(2/tau)*(-1+(1/rho))*eye(dimN,dimN) + (1/tau)*(-1+(1/rho))*T;
+	A1 = (-1/np.sqrt(1-eps))*(2/tau)*(-1+(1/rho))*I + (1/tau)*(-1+(1/rho))*T
+
+	B = np.zeros((n,1))
+	B[0,0] = 1
+	B[1,0] = 1
+	C = np.zeros((1,n))
+	C[0,0] = 1
+	C[0,1] = 1
 	H = lambda z: C @ ss.linalg.spsolve( z * E - A0 - np.exp(-tau*z)* A1, B)
 	Hder = lambda z: - C @ ss.linalg.spsolve( z * E - A0 - np.exp(-tau*z)* A1, 
 							(E + tau * np.exp(-tau*z)*A1) @ ss.linalg.spsolve( z*E - A0 - np.exp(-tau*z)*A1, B))
-
+	
 	
 	# Limits 
 	lim_zH = C @ ss.linalg.spsolve(E, B)	
 	sys = TransferSystem(H, transfer_der = Hder, isreal = True, lim_zH = [lim_zH, lim_zH] )
+	sys.E = E
 	sys.A0 = A0
 	sys.A1 = A1
-	sys.E = E
 	sys.tau = tau
-	sys.chi = chi
+	sys.eps = eps
+	sys.rho = rho
 	return sys
