@@ -228,7 +228,7 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 		
 	"""
 	def __init__(self, rom_dim, real = True, maxiter = 1000, verbose = False, ftol = 1e-9, 
-		cond_max= 1e18, growth = 10, print_norm = False, spectral_abscissa = -1e-6):
+		cond_max= 1e18, growth = 10, print_norm = False):
 		H2MOR.__init__(self, rom_dim, real = real)
 		self.maxiter = maxiter
 		self.verbose = verbose
@@ -237,7 +237,6 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 		self.over_determine = 2
 		self.print_norm = print_norm
 		self.growth = growth
-		self._spectral_abscissa = spectral_abscissa
 
 	def _mu_init(self, H):
 		if isinstance(H, StateSpaceSystem):
@@ -260,13 +259,6 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 		raise NotImplementedError
 
 	def _fit(self, H, mu0 = None):
-		# If a spectral abscissa hasn't been provided, use that of the FOM
-		#if self._spectral_abscissa is None:
-		#	try:
-		#		self._spectral_abscissa = H.spectral_abscissa()
-		#	except:
-		#		pass	
-		self._spectral_abscissa = 0
 	
 		if mu0 is None:
 			mu0 = self._mu_init(H)
@@ -334,8 +326,6 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			kwargs['gtol'] = 3e-16
 			kwargs['ftol'] = 3e-16
 			kwargs['max_nfev'] = 10*self.rom_dim
-			#if self._spectral_abscissa is not None:
-			#	kwargs['spectral_abscissa'] = self._spectral_abscissa
 			if self.verbose >= 100:
 				kwargs['verbose'] = 2
 
@@ -361,9 +351,6 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 
 			# Initialization based on previous poles
 			if len(lam) == rom_dim:
-				#vf = VFRationalFit(rom_dim - 1, rom_dim, W = M)
-				#vf.fit(mu, H_mu)
-				#lam_vf, rho_vf = vf.pole_residue()
 				Hr2.fit(mu, H_mu, W = M, lam0 = lam)
 				res_norm2 = Hr2.residual_norm()
 			else:

@@ -4,7 +4,7 @@ from numpy.linalg import norm
 def check_jacobian(x, residual, jacobian):
 	n = x.shape[0]
 	hvec = np.logspace(-14,-1,100)
-
+#	hvec = [1e-4,]
 	max_err = 0	
 	J = jacobian(x)
 
@@ -13,12 +13,12 @@ def check_jacobian(x, residual, jacobian):
 	for i in range(n):
 		ei = np.zeros(x.shape, dtype = np.float)
 		ei[i] = 1.
-		err = [ np.linalg.norm( (residual(x+ei*h) - residual(x-ei*h))/(2*h) - J[:,i], 2) for h in hvec]
+		err = [ np.linalg.norm( (residual(x+ei*h) - residual(x-ei*h))/(2*h) - J[:,i], np.inf) for h in hvec]
 		j = np.argmin(err)
 		print("%3d: nominal norm:%5.5e, err:%5.5e, h: %3.3e" % (i, np.linalg.norm(J[:,i]), min(err), hvec[j]))
-		Jest = (residual(x + ei*hvec[j]) - residual(x - ei*hvec[j]))/(2*hvec[j])
-		#print "Jest", Jest[0:4]
-		#print "J   ", J[0:4,i] 
+#		Jest = (residual(x + ei*hvec[j]) - residual(x - ei*hvec[j]))/(2*hvec[j])
+#		print("Jest", Jest[0:4])
+#		print("J   ", J[0:4,i])
 		max_err = max(min(err)/norm(J[:,i]), max_err)
 
 	return max_err
