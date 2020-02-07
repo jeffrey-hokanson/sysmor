@@ -8,11 +8,25 @@ from mor.check_der import check_jacobian
 def test_conversion():
 
 	r = 6
-	ph_sys = FitPortHamiltonianSystem(r)
+	ph_sys = FitPortHamiltonianSystem(r, verbose = True)
 	theta = np.random.rand(2*r+(r*(r-1))//2)	
 	R, J, C = ph_sys._theta_to_RJC(theta)
 	theta2 = ph_sys._RJC_to_theta(R, J, C)
 	assert np.all(theta == theta2)
+
+
+def test_ph2_port_fit():
+	np.random.seed(1)
+	H = build_iss()[0,0]
+
+	ph2ph = ProjectedH2PortHamiltonian(4)
+	ph2ph.fit(H)		
+
+	print(ph2ph.J)
+	print(ph2ph.R)
+	print(ph2ph.C)
+
+	print("relative error", (H - ph2ph).norm()/H.norm())
 
 
 def test_ph2_port():
@@ -47,5 +61,6 @@ def test_ph2_port():
 
 
 if __name__ == '__main__':
-	test_ph2_port() 
+#	test_ph2_port() 
+	test_ph2_port_fit() 
 #	test_conversion()
