@@ -25,7 +25,16 @@ def test_ph2_port_fit():
 	print(ph2ph.J)
 	print(ph2ph.R)
 	print(ph2ph.C)
+	lam, rho = ph2ph.pole_residue()
+	print("poles")
 
+	z = -lam.conj()
+	H_z, H_z_der = H.transfer(z, der = True)
+	Hr_z, Hr_z_der = ph2ph.transfer(z, der = True)
+	print("H_z", H_z)
+	print("Hr_z", Hr_z)
+	print("H_z_der", H_z_der)
+	print("Hr_z_der", Hr_z_der)
 	print("relative error", (H - ph2ph).norm()/H.norm())
 
 
