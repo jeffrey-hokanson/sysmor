@@ -99,13 +99,13 @@ def run_mor(MOR, rs, prefix, hist = False, **kwargs):
 				pgf.write(prefix + '_hist_%02d.dat' % r)
 		
 
-def run_quadvf_hist(r, prefix, L = 10, Nmax = 5000, ftol = 1e-9):
+def run_quadvf_hist(r, prefix, L = 10, Nmax = 500, ftol = 1e-9):
 	H = mor.demos.build_bg_delay()
 	H_norm = H.quad_norm(n = n_quad, L = 10)
 
 	fom_eval_hist = []
 	rel_err_hist = []
-	for N in range(2*r, Nmax, 10):	
+	for N in range(r, Nmax, 1):	
 		Hr = mor.QuadVF(r, N = N, L = L, ftol = ftol)
 		Hr.fit(H)	
 		err = (H - Hr).quad_norm(n = n_quad, L = L)/H_norm

@@ -36,6 +36,7 @@ def hermite_interpolant(z, Hz, Hpz):
 		Ar = scipy.linalg.solve(Er, Ar)
 		Br = scipy.linalg.solve(Er, Br)
 	Hr = StateSpaceSystem(Ar, Br, Cr)
+	Hr.mu = np.copy(z)
 	return Hr
 
 
