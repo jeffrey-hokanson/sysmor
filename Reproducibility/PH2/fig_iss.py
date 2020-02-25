@@ -51,7 +51,7 @@ def run_mor(MOR, rs, prefix, hist = False, **kwargs):
 
 
 		if hist:
-			for it, Hr_it in enumerate([hist['Hr'] for hist in Hr.history]):
+			for it, (Hr_it, mu) in enumerate([ (hist['Hr'], hist['mu']) for hist in Hr.history]):
 				print("History", it)
 				# Plot 
 				pgf = PGF()
@@ -66,8 +66,8 @@ def run_mor(MOR, rs, prefix, hist = False, **kwargs):
 				
 				# Generate list of poles
 				pgf = PGF()
-				pgf.add('re_mu', Hr_it.mu.real)
-				pgf.add('im_mu', Hr_it.mu.imag)
+				pgf.add('re_mu', mu.real)
+				pgf.add('im_mu', mu.imag)
 				pgf.write(prefix + '_%02d_hist_mu_%02d.dat' % (r, it))
 				
 				# Generate list of poles
@@ -78,12 +78,12 @@ def run_mor(MOR, rs, prefix, hist = False, **kwargs):
 				pgf.write(prefix + '_%02d_hist_lam_%02d.dat' % (r, it))
 
 				# Generate list of poles of FOM
-				if it == 0:
-					pgf = PGF()
-					lam, _ = H.pole_residue()
-					pgf.add('re_lam', lam.real)
-					pgf.add('im_lam', lam.imag)
-					pgf.write(prefix + '_fom_poles.dat')
+				#if it == 0:
+				#	pgf = PGF()
+				#	lam, _ = H.pole_residue()
+				#	pgf.add('re_lam', lam.real)
+				#	pgf.add('im_lam', lam.imag)
+				#	pgf.write(prefix + '_fom_poles.dat')
 
 
 		# Condition number

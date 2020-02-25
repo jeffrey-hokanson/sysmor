@@ -11,6 +11,9 @@ try:
 except:
 	from scipy.linalg import solve_continuous_lyapunov as solve_lyapunov
 
+import scipy.linalg
+import scipy.sparse.linalg
+
 from scipy.sparse.linalg import eigs, spsolve, LinearOperator
 from scipy.linalg import eig, expm, block_diag, lu_factor, lu_solve, eigvals
 from scipy.sparse import eye as speye
@@ -706,6 +709,17 @@ class SparseStateSpaceSystem(StateSpaceSystem):
 		else:
 			return StateSpaceSystem(A, B, C)
 	# Implement poles	
+	def pole_residue(self):
+		r""" Compute the poles and residues of this system
+		"""
+		# TODO Improve efficiency
+		lam, V = scipy.linalg.eig(self.A.toarray())
+		#B = V.dot(self.B)
+		#C = scipy.linalg.solve(V.T, self.C.T).T
+		B = scipy.linalg.solve(V, self.B)
+		C = self.C.dot(V)
+		rho = np.array([np.outer(B[i,:], C[:,i]) for i in range(len(lam))])
+		return lam, rho
 
 	def norm(self):
 		A = self.A.todense()
