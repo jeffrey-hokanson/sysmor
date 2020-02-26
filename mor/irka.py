@@ -16,6 +16,21 @@ def rational_krylov_approximation(H, mu):
 	r""" Constructs a rational Krylov approximation
 
 	By construction this recovers a real system.
+
+
+	Parameters
+	----------
+	H: StateSpaceSystem
+		State space FOM to reduce
+	mu: array-like
+		Shift locations
+
+	Returns
+	-------
+	Hr: StateSpaceSystem	
+		Reduced order model interpolating at mu
+	nsolve: int
+		Number of linear solves
 	"""
 	assert isinstance(H, StateSpaceSystem), "IRKA only applies to state-space systems"
 
@@ -30,16 +45,19 @@ def rational_krylov_approximation(H, mu):
 	B = H.B
 	C = H.C
 	i = 0
+	nsolves = 0
 	while i < r:
 		if np.abs(mu[i].imag) / np.abs(mu[i]) < 1e-10:
 			v = H.solve(B, mu[i].real)
 			w = H.solve(C.T, mu[i].real, mode = 'T')
+			nsolves += 2
 			V[:, i] = v.flatten()
 			W[:, i] = w.flatten()
 			i += 1
 		else:
 			v = H.solve(B, mu[i])
 			w = H.solve(C.T, mu[i], mode = 'T')
+			nsolves += 2
 			V[:, i:i+2] = np.c_[v.real, v.imag]
 			W[:, i:i+2] = np.c_[w.real, w.imag]
 			i += 2
@@ -55,7 +73,7 @@ def rational_krylov_approximation(H, mu):
 	Br = W.T.dot(H.B)
 	Cr = H.C.dot(V)
 	Hr = StateSpaceSystem(Ar, Br, Cr)
-	return Hr
+	return Hr, nsolves 
 
 class IRKA(H2MOR, StateSpaceSystem):
 	"""
@@ -68,7 +86,7 @@ class IRKA(H2MOR, StateSpaceSystem):
 		H2MOR.__init__(self, rom_dim, real = real)
 		assert self.real, "Implementation only handles real approximating systems"
 		#assert rom_dim % 2 == 0, "Only even recovered systems currently supported"
-		self.maxiter = maxiter 
+		self.maxiter = int(maxiter)
 		self.flipping = flipping
 		self.verbose = verbose
 		self.ftol = ftol
@@ -89,8 +107,9 @@ class IRKA(H2MOR, StateSpaceSystem):
 
 	def _fit_iterate(self, H, mu):
 		# Compute new rational interpolant based on shifts mu
-		Hr = rational_krylov_approximation(H, mu)
-		self._total_linear_solves += 2*self.rom_dim
+		assert H.isreal
+		Hr, nsolves = rational_krylov_approximation(H, mu)
+		self._total_linear_solves += nsolves
 		return Hr
 
 	def _fit(self, H, mu0 = None):
@@ -136,8 +155,16 @@ class IRKA(H2MOR, StateSpaceSystem):
 			lam = Hr.poles()
 			# Flip into RHP
 			mu = np.abs(lam.real) + 1j* lam.imag 
-			
-			delta_mu = marriage_norm(mu, mu_old)
+		
+			# If seeking a real ROM, force poles/residues to come in conjugate pairs 
+			if self.real:
+				I = hungarian_sort(mu, mu.conj())
+				mu = 0.5*(mu + mu[I].conj())
+				# Ensure they are accurate to all bits
+				mu[mu.imag < 0 ] = mu[mu.imag > 0].conj()
+
+			I = hungarian_sort(mu, mu_old)
+			delta_mu = np.linalg.norm(mu - mu_old[I])	
 		
 			Hr_norm = Hr.norm()
 			res_norm = (Hr - Hr_old).norm()	

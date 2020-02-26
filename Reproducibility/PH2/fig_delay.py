@@ -90,13 +90,14 @@ def run_mor(MOR, rs, prefix, hist = False, **kwargs):
 			print("History")
 			fom_eval_hist = []
 			rel_err_hist = []
-			for hist in Hr.history:
+			for ii, hist in enumerate(Hr.history):
 				fom_eval_hist.append(hist['total_fom_evals'] + hist['total_fom_der_evals'] + hist['total_linear_solves'])
 				rel_err_hist.append( (H - hist['Hr'] ).quad_norm(n = n_quad, L = 10)/H_norm )
 				pgf = PGF()
 				pgf.add('fom_evals', fom_eval_hist)
 				pgf.add('rel_err', rel_err_hist)
 				pgf.write(prefix + '_hist_%02d.dat' % r)
+				print("finished history %d" % ii)
 		
 
 def run_quadvf_hist(r, prefix, L = 10, Nmax = 500, ftol = 1e-9):

@@ -57,39 +57,40 @@ class H2MOR:
 		if der:
 			H_mu_der = np.nan*np.zeros(mu.shape, dtype = np.complex)
 	
-		for i in range(len(mu)):
-			# Try to grab the values from existing evaluations
-			success = False
-			try:	
-				H_mu[i] = self._H_mu[mu[i]]
-				if der: H_mu_der[i] = self._H_mu_der[mu[i]]
-				success = True
-			except KeyError:
-				pass
+		H_real = H.isreal
+	
+		for i, mu_i in enumerate(mu):
+			# Try to pull function values from cache
+			if True:
+				try: H_mu[i] = self._H_mu[mu_i]
+				except KeyError: pass
 
-			# If we've failed so far and we're looking for a real model,
-			# look for the conjugate
-			if (not success) and self.real:
-				try:
-					H_mu[i] = self._H_mu[mu[i].conj()].conj()
-					if der: H_mu_der[i] = self._H_mu_der[mu[i].conj()].conj()
-					success = True
-				except KeyError:
-					pass
+			if H_real and np.any(np.isnan(H_mu[i])): 
+				try: H_mu[i] = self._H_mu[mu_i.conj()].conj()
+				except KeyError: pass
+			
+			if der:
+				try: H_mu_der[i] = self._H_mu_der[mu_i]
+				except KeyError: pass
 
-			if success is False:
-				# If we haven't found the sample in the database, 
-				# compute it
-				if der:
-					H_mu[i], H_mu_der[i] = H.transfer(mu[i], der = True)
-					
-					self._H_mu_der[mu[i]] = np.copy(H_mu_der[i])
-					self._total_fom_der_evals += 1
-					self._total_fom_evals += 1
-				else:
-					H_mu[i] = H.transfer(mu[i])
-					self._H_mu[mu[i]] = np.copy(H_mu[i])
-					self._total_fom_evals += 1
+			if der and H_real and np.any(np.isnan(H_mu_der[i])):
+				try: H_mu_der[i] = self._H_mu_der[mu_i.conj()].conj()
+				except KeyError: pass
+			
+			# For those points not in the cache, evaluate
+			if (not der) and np.any(np.isnan(H_mu[i])):
+				H_mu[i] = H.transfer(mu_i, der = False)
+				self._H_mu[mu_i] = np.copy(H_mu[i])
+				self._total_fom_evals += 1
+
+			if der and (np.any(np.isnan(H_mu[i])) or np.any(np.isnan(H_mu_der[i]))):
+				H_mu[i], H_mu_der[i] = H.transfer(mu_i, der = True)
+				self._H_mu[mu_i] = np.copy(H_mu[i])
+				self._H_mu_der[mu_i] = np.copy(H_mu_der[i])
+				self._total_fom_evals += 1
+				self._total_fom_der_evals += 1
+
+
 		if der:
 			return H_mu, H_mu_der
 		else:
