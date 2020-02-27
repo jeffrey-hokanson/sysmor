@@ -3,7 +3,7 @@
 # Implemented by Jeffrey M. Hokanson
 from __future__ import division
 import numpy as np
-import scipy
+import scipy, scipy.linalg
 from .lagrange import BarycentricPolynomial 
 from .ratfit import RationalFit
 
@@ -153,4 +153,124 @@ class AAARationalFit(RationalFit):
 		# Compute the smallest right singular vector of L
 		U, s, VH = scipy.linalg.svd(L, full_matrices = False, compute_uv = True, overwrite_a = True)
 		self.b = VH.conjugate().T[:,-1] 
+	
+
+
+class VectorValuedAAARationalFit(RationalFit):
+	r""" Construct a degree (r,r) rational approximation of vector/matrix valued data using AAA
+
+
+	Parameters
+	----------
+	r: int, optional
+		Degree of rational approximation
+	ls_numerator: bool, optional
+		If True, use a least-squares approximation for the numerator
+	"""
+	
+	def __init__(self, r, ls_numerator = False, verbose = True):
+		self.r = int(r)
+		self.verbose = verbose 
+		self.ls_numerator = bool(ls_numerator)
+
+
+	def fit(self, z, f):
+		r""" Fit the rational approximation
+
+		"""
+
+		z = np.array(z).flatten()
+		f = [np.array(fi) for fi in f]
+		assert len(z) == len(f)
+		assert np.all([ f[0].shape == fi.shape for fi in f[1:]])
+		f = np.array(f)
+
+		mismatch = np.copy(f)
+		Ihat = np.zeros(len(z), dtype = np.bool)
+
+		for it in range(min(self.r+1, len(z)//2+1)):
+			residual = np.sum( mismatch**2, axis = tuple(range(1,len(f[0].shape)+1)))
+			residual[Ihat] = 0	# make sure error is zero at points we've already sampled
+			# Determine new interpolation point
+			Inew = np.argmax(residual)
+			Ihat[Inew] = True
+			
+			# Build Loewner matrices
+			self.zhat = zhat = z[Ihat]
+			zcheck = z[~Ihat]
+			# Cauchy matrix representing the denominator in the Loewner matrix
+			C = 1./(np.tile(zcheck.reshape(-1,1), (1,len(zhat))) - np.tile(zhat.reshape(1,-1), (len(zcheck),1)))
+			# Build the Loewner matrix associated with each input
+			Lten = []
+			for idx in np.ndindex(f[0].shape):
+				Lten.append( (C.T * f[(~Ihat,*idx)]).T - C*f[(Ihat,*idx)] )
+			L = np.vstack(Lten)
+			
+			# Compute coefficients for denominator polynomial
+			U, s, VH = scipy.linalg.svd(L, full_matrices = False, compute_uv = True, overwrite_a = True)
+			self.b = VH.conjugate().T[:,-1] 
 		
+			# Compute the coefficients of the numerator polynomial
+			if self.ls_numerator:
+
+				# I'm not sure this is working right
+				Chat = np.zeros((len(z), len(zhat)), dtype = np.complex)
+				Chat[Ihat] = np.eye(len(zhat))
+				Chat[~Ihat] = C
+				denom = Chat @ self.b
+				print(Chat)
+				A = np.kron(np.eye(np.prod(f[0].shape)), np.diag(1./denom) @ Chat)
+				print(A)
+				rhs = f.flatten()
+				print(rhs)
+				a = scipy.linalg.lstsq(A, rhs)[0]
+				a = a.reshape( [it+1,] + list(f[0].shape))
+				print("a", a)
+				print("b", self.b)
+				self.a = a
+				a_normal= np.array([ bk*f[k] for bk, k in zip(self.b, np.argwhere(Ihat).flatten())])
+				print("a", a_normal)
+				assert False
+			else:
+				# Traditional AAA construction of partial rational intepolant
+				self.a = np.array([ bk*f[k] for bk, k in zip(self.b, np.argwhere(Ihat).flatten())])
+
+
+			mismatch = f - self.__call__(z)
+
+			if self.verbose:
+				if it == 0:
+					name = 'iter'
+					header = f"{name:4} |"
+					name = 'res norm'
+					header += f" {name:^14} |"
+					name = 'min sing val'
+					header += f" {name:^14} |"
+					print(header)
+					print('-'*5 + '|' + '-'*16 + '|' + '-'*16 + '|')
+
+				res_norm = np.sqrt(np.sum(np.abs(mismatch)**2))
+				s_min = s[-1]
+				line = f'{it:4} | {res_norm:14.8e} | {s_min:14.8e} |'
+				print(line)
+			
+
+
+	def __call__(self, z):
+		zeval = np.array(z).flatten()
+
+		with np.errstate(divide='ignore',invalid='ignore'):
+			denom = np.sum([ b/(zeval - z) for b, z in zip(self.b, self.zhat)], axis = 0)
+			C = 1./(np.tile(zeval.reshape(-1,1), (1,len(self.zhat))) - np.tile(self.zhat.reshape(1,-1), (len(zeval),1)))
+			num = np.einsum('i...,ji->j...',self.a, C)
+			reval = np.einsum('i...,i->i...', num, 1./denom)
+
+		
+		# Now check cases where we had a divide by zero error
+		for j in np.argwhere(~np.any(np.isfinite(reval), axis = tuple(range(1,len(self.a.shape))) )):
+			k = np.argmin(np.abs(zeval[j] - self.zhat))
+			reval[j] = self.a[k]/self.b[k]
+		
+		return reval
+
+

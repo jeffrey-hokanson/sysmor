@@ -1,6 +1,6 @@
 import numpy as np
 from mor import AAARationalFit
-
+from mor import VectorValuedAAARationalFit
 
 def aaa_tan(N = 1000, m = 10, coeff = 4, norm = np.inf):
 	""" Generate residual corresponding to [Fig. 6.4, NST18]
@@ -36,6 +36,19 @@ def test_cleanup():
 	assert n2 < 50	
 
 
+def test_vector(N = 1000, coeff = 4):
+	z = np.exp(2j*np.pi*np.linspace(0,1, N, endpoint = False))
+	f = [[[np.tan(coeff*zi), 5*np.tan(coeff*zi)], [np.tan(2*zi), np.tan(4*zi)]] for zi in z]
+#	f = [[np.tan(coeff*zi),] for zi in z]
+
+	r = 20
+	aaa = VectorValuedAAARationalFit(r, verbose = True, ls_numerator = False)
+	aaa.fit(z, f)
+	
+	
+	
+
 if __name__ == '__main__':
 	#aaa_tanh(N = 20, m = 10)
-	test_cleanup()
+	#test_cleanup()
+	test_vector()

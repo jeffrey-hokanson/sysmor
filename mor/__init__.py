@@ -11,7 +11,7 @@ from .pbfit import PolynomialBasisRationalFit
 from .pffit import PartialFractionRationalFit
 from .vecfit import VFRationalFit
 from .skfit import SKRationalFit
-from .aaa import AAARationalFit
+from .aaa import *
 
 # LTI Systems
 from .system import *
