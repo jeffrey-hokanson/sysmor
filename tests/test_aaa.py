@@ -38,12 +38,19 @@ def test_cleanup():
 
 def test_vector(N = 1000, coeff = 4):
 	z = np.exp(2j*np.pi*np.linspace(0,1, N, endpoint = False))
-	f = [[[np.tan(coeff*zi), 5*np.tan(coeff*zi)], [np.tan(2*zi), np.tan(4*zi)]] for zi in z]
-#	f = [[np.tan(coeff*zi),] for zi in z]
 
-	r = 20
-	aaa = VectorValuedAAARationalFit(r, verbose = True, ls_numerator = False)
-	aaa.fit(z, f)
+	
+	f1 = [[[np.tan(coeff*zi), 5*np.tan(coeff*zi)], [np.tan(2*zi), np.tan(4*zi)]] for zi in z]
+	f2 = [[np.tan(coeff*zi), 5*np.tan(coeff*zi)] for zi in z]
+	f3 = [[np.tan(coeff*zi),] for zi in z]
+
+	for f in [f1, f2, f3]:
+		r = 20
+		aaa = VectorValuedAAARationalFit(r, verbose = True)
+		aaa.fit(z, f)
+	
+		assert np.max(np.abs(aaa(z) - f)) < 1e-10	
+		
 	
 	
 	

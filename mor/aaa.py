@@ -164,14 +164,12 @@ class VectorValuedAAARationalFit(RationalFit):
 	----------
 	r: int, optional
 		Degree of rational approximation
-	ls_numerator: bool, optional
-		If True, use a least-squares approximation for the numerator
 	"""
 	
-	def __init__(self, r, ls_numerator = False, verbose = True):
+	def __init__(self, r, verbose = True, tol = 1e-13):
 		self.r = int(r)
 		self.verbose = verbose 
-		self.ls_numerator = bool(ls_numerator)
+		self.tol = 1e-13
 
 
 	def fit(self, z, f):
@@ -189,7 +187,7 @@ class VectorValuedAAARationalFit(RationalFit):
 		Ihat = np.zeros(len(z), dtype = np.bool)
 
 		for it in range(min(self.r+1, len(z)//2+1)):
-			residual = np.sum( mismatch**2, axis = tuple(range(1,len(f[0].shape)+1)))
+			residual = np.max(np.abs(mismatch), axis = tuple(range(1,len(f[0].shape)+1)))
 			residual[Ihat] = 0	# make sure error is zero at points we've already sampled
 			# Determine new interpolation point
 			Inew = np.argmax(residual)
@@ -211,32 +209,11 @@ class VectorValuedAAARationalFit(RationalFit):
 			self.b = VH.conjugate().T[:,-1] 
 		
 			# Compute the coefficients of the numerator polynomial
-			if self.ls_numerator:
-
-				# I'm not sure this is working right
-				Chat = np.zeros((len(z), len(zhat)), dtype = np.complex)
-				Chat[Ihat] = np.eye(len(zhat))
-				Chat[~Ihat] = C
-				denom = Chat @ self.b
-				print(Chat)
-				A = np.kron(np.eye(np.prod(f[0].shape)), np.diag(1./denom) @ Chat)
-				print(A)
-				rhs = f.flatten()
-				print(rhs)
-				a = scipy.linalg.lstsq(A, rhs)[0]
-				a = a.reshape( [it+1,] + list(f[0].shape))
-				print("a", a)
-				print("b", self.b)
-				self.a = a
-				a_normal= np.array([ bk*f[k] for bk, k in zip(self.b, np.argwhere(Ihat).flatten())])
-				print("a", a_normal)
-				assert False
-			else:
-				# Traditional AAA construction of partial rational intepolant
-				self.a = np.array([ bk*f[k] for bk, k in zip(self.b, np.argwhere(Ihat).flatten())])
-
+			self.a = np.array([ bk*f[k] for bk, k in zip(self.b, np.argwhere(Ihat).flatten())])
 
 			mismatch = f - self.__call__(z)
+			res_norm = np.max(np.abs(mismatch))
+
 
 			if self.verbose:
 				if it == 0:
@@ -249,10 +226,12 @@ class VectorValuedAAARationalFit(RationalFit):
 					print(header)
 					print('-'*5 + '|' + '-'*16 + '|' + '-'*16 + '|')
 
-				res_norm = np.sqrt(np.sum(np.abs(mismatch)**2))
 				s_min = s[-1]
 				line = f'{it:4} | {res_norm:14.8e} | {s_min:14.8e} |'
 				print(line)
+
+			if res_norm < self.tol:
+				break
 			
 
 
@@ -274,3 +253,5 @@ class VectorValuedAAARationalFit(RationalFit):
 		return reval
 
 
+class TangentialAAARationalFit(VectorValuedAAARationalFit):
+	pass
