@@ -254,4 +254,81 @@ class VectorValuedAAARationalFit(RationalFit):
 
 
 class TangentialAAARationalFit(VectorValuedAAARationalFit):
-	pass
+	r""" Constructs a matrix-valued rational approximation from tangential measurements
+
+	Suppose we have a matrix valued function :math:`\mathbf{F}(z) \in \mathbb{C}^{p \times q}`
+	and we obtain left and right tangential data
+
+	..math::
+
+		\mathbf{F}(z_j^R)  \mathbf{x}_j   \quad \text{and} \quad  \mathbf{y}_j^* \mathbf{F}(z_j^L)
+
+	
+	"""
+
+	def fit(self, zx, x, Fx, zy, y, yF):
+		r"""
+
+		Parameters
+		----------
+		zx: array-like
+			Right tangent sample locations
+		x: array-like
+			Right tangent vectors
+		Fx: array-like
+			Right tangent vectors samples of F: F @ x
+		zy: array-like
+			left tangent vector sample locations
+		y: array-like
+			left tangent vectors
+		yF: array-like
+			Right tangent vector samples of F: y.conj().T @ y
+		"""
+
+		zx = np.array(zx).flatten()
+		x = np.array(x)
+		assert x.shape[0] == len(zx)
+		Fx = np.array(Fx)
+		assert Fx.shape[0] == len(zx)
+
+		zy = np.array(zy).flatten()
+		y = np.array(y)
+		assert y.shape[0] == len(zy)
+		yF = np.array(yF)
+		assert yF.shape[0] == len(zy)
+	
+
+		# TODO: Normalize tangent vectors	
+
+		z = np.hstack([zx, zy])
+		mismatch = np.hstack([
+			np.max(np.abs(Fx), axis = 1),
+			np.max(np.abs(yF), axis = 1),
+			])
+
+		Ihat = np.zeros(len(z), dtype = np.bool)
+		
+		for it in range(min(self.r+1, len(z)//2+1)):
+			# Pick new interpolation point
+			Ihat[np.argmax(mismatch)] = True
+			
+			# Build Loewner matrices
+			self.zhat = zhat = z[Ihat]
+			zcheck = z[~Ihat]
+			# Cauchy matrix representing the denominator in the Loewner matrix
+			C = 1./(np.tile(zcheck.reshape(-1,1), (1,len(zhat))) - np.tile(zhat.reshape(1,-1), (len(zcheck),1)))
+
+			# Build the Loewner matrix associated with each input
+			Lten = []
+			
+			# Right tangent vector data
+			for zj, xj, Fxj in zip(zx, x, Fx):
+				for fij in Fxj:
+					Lten.append( (C.T * f[(~Ihat,*idx)]).T - C*f[(Ihat,*idx)] )
+			L = np.vstack(Lten)
+
+
+
+
+
+

@@ -1,6 +1,7 @@
 import numpy as np
 from mor import AAARationalFit
 from mor import VectorValuedAAARationalFit
+from mor import TangentialAAARationalFit
 
 def aaa_tan(N = 1000, m = 10, coeff = 4, norm = np.inf):
 	""" Generate residual corresponding to [Fig. 6.4, NST18]
@@ -50,6 +51,29 @@ def test_vector(N = 1000, coeff = 4):
 		aaa.fit(z, f)
 	
 		assert np.max(np.abs(aaa(z) - f)) < 1e-10	
+
+
+def test_tangent(N = 10, coeff = 4):
+	np.random.seed(0)
+	z = np.exp(2j*np.pi*np.linspace(0,1, N, endpoint = False))
+
+	
+	F = np.array([[[np.tan(coeff*zi), 5*np.tan(coeff*zi)], [np.tan(2*zi), np.tan(4*zi)]] for zi in z])
+	x = np.random.randn(N//2, 2)
+	y = np.random.randn(N - x.shape[0], 2)
+
+	I = np.arange(0,len(x))
+	zx = z[I]
+	zy = z[~I]
+	Fx = [ Fi @ xi for Fi, xi in zip(F[I], x)]
+	yF = [ yi.conj().T @ Fi for Fi, yi in zip(F[~I], y)]
+	
+
+	r = 10
+	aaa = TangentialAAARationalFit(r, verbose = True)
+	aaa.fit(zx, x, Fx, zy, y, yF)
+
+#	assert np.max(np.abs(aaa(z) - f)) < 1e-10	
 		
 	
 	
@@ -58,4 +82,5 @@ def test_vector(N = 1000, coeff = 4):
 if __name__ == '__main__':
 	#aaa_tanh(N = 20, m = 10)
 	#test_cleanup()
-	test_vector()
+#	test_vector()
+	test_tangent()
