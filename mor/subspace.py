@@ -2,10 +2,7 @@ import numpy as np
 import mpmath as mp
 from itertools import product
 
-try:
-	from functools import lru_cache
-except ImportError:
-	from functools32 import lru_cache
+from functools import lru_cache
 
 @lru_cache(maxsize = 2)
 def cauchy_eigen(mu, dps):
