@@ -6,6 +6,8 @@ import numpy as np
 import scipy, scipy.linalg
 from .lagrange import BarycentricPolynomial 
 from .ratfit import RationalFit
+import cvxpy as cp
+
 
 class AAARationalFit(RationalFit):
 	""" Construct a degree (m,m) rational approximation using the AAA algorithm
@@ -253,9 +255,6 @@ class VectorValuedAAARationalFit(RationalFit):
 			reval[j] = self.a[k]/self.b[k]
 		
 		return reval
-
-
-
 
 
 

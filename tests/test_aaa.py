@@ -53,7 +53,7 @@ def test_vector(N = 1000, coeff = 4):
 		assert np.max(np.abs(aaa(z) - f)) < 1e-10	
 
 
-def test_tangent(N = 10, coeff = 4):
+def test_tangent(N = 20, coeff = 4):
 	np.random.seed(0)
 	z = np.exp(2j*np.pi*np.linspace(0,1, N, endpoint = False))
 
