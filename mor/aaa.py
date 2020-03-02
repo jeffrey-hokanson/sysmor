@@ -6,7 +6,6 @@ import numpy as np
 import scipy, scipy.linalg
 from .lagrange import BarycentricPolynomial 
 from .ratfit import RationalFit
-import cvxpy as cp
 
 
 class AAARationalFit(RationalFit):
