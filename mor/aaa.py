@@ -6,6 +6,8 @@ import numpy as np
 import scipy, scipy.linalg
 from .lagrange import BarycentricPolynomial 
 from .ratfit import RationalFit
+import cvxpy as cp
+
 
 class AAARationalFit(RationalFit):
 	""" Construct a degree (m,m) rational approximation using the AAA algorithm
@@ -266,18 +268,18 @@ class TangentialAAARationalFit(VectorValuedAAARationalFit):
 	
 	"""
 
-	def fit(self, zx, x, Fx, zy, y, yF):
+	def fit(self, zR, x, Fx, zL, y, yF):
 		r"""
 
 		Parameters
 		----------
-		zx: array-like
+		zR: array-like
 			Right tangent sample locations
 		x: array-like
 			Right tangent vectors
 		Fx: array-like
 			Right tangent vectors samples of F: F @ x
-		zy: array-like
+		zL: array-like
 			left tangent vector sample locations
 		y: array-like
 			left tangent vectors
@@ -285,48 +287,166 @@ class TangentialAAARationalFit(VectorValuedAAARationalFit):
 			Right tangent vector samples of F: y.conj().T @ y
 		"""
 
-		zx = np.array(zx).flatten()
+		# Format data and check dimensions
+		zR = np.array(zR).flatten()
 		x = np.array(x)
-		assert x.shape[0] == len(zx)
+		assert x.shape[0] == len(zR)
 		Fx = np.array(Fx)
-		assert Fx.shape[0] == len(zx)
+		assert Fx.shape[0] == len(zR)
 
-		zy = np.array(zy).flatten()
+		zL = np.array(zL).flatten()
 		y = np.array(y)
-		assert y.shape[0] == len(zy)
+		assert y.shape[0] == len(zL)
 		yF = np.array(yF)
-		assert yF.shape[0] == len(zy)
+		assert yF.shape[0] == len(zL)
 	
-
-		# TODO: Normalize tangent vectors	
-
-		z = np.hstack([zx, zy])
-		mismatch = np.hstack([
-			np.max(np.abs(Fx), axis = 1),
-			np.max(np.abs(yF), axis = 1),
-			])
-
-		Ihat = np.zeros(len(z), dtype = np.bool)
+		# Normalize tangent vectors for scaling consistency
+		for i, xi in enumerate(x):
+			xi_norm = np.linalg.norm(xi)
+			x[i] /= xi_norm
+			Fx[i] /= xi_norm
 		
-		for it in range(min(self.r+1, len(z)//2+1)):
-			# Pick new interpolation point
-			Ihat[np.argmax(mismatch)] = True
-			
-			# Build Loewner matrices
-			self.zhat = zhat = z[Ihat]
-			zcheck = z[~Ihat]
-			# Cauchy matrix representing the denominator in the Loewner matrix
-			C = 1./(np.tile(zcheck.reshape(-1,1), (1,len(zhat))) - np.tile(zhat.reshape(1,-1), (len(zcheck),1)))
+		for i, yi in enumerate(y):
+			yi_norm = np.linalg.norm(yi)
+			y[i] /= yi_norm
+			yF[i] /= yi_norm
 
-			# Build the Loewner matrix associated with each input
+		IhatL = np.zeros(len(zL), dtype = np.bool)
+		IhatR = np.zeros(len(zR), dtype = np.bool)
+	
+		errorL = np.max(np.abs(Fx), axis = 1)
+		errorR = np.max(np.abs(yF), axis = 1)
+		
+		for it in range(self.r+1):
+			# Determine new interpolation point
+			errorL[IhatL] = 0
+			errorR[IhatR] = 0
+			iL = np.argmax(errorL)	
+			iR = np.argmax(errorR)	
+			if errorL[iL] > errorR[iR]:
+				IhatL[iL] = True
+			else:
+				IhatR[iR] = True
+
+
+			# Build the Loewner matrix
 			Lten = []
+			for j in np.argwhere(~IhatR).flatten():
+				L = []
+				for k in np.argwhere(IhatL).flatten():
+					L.append( (Fx[j] - y[k] * np.inner(yF[k], x[j])).reshape(-1,1) /(zR[j] - zL[k]) )
+				for k in np.argwhere(IhatR).flatten():
+					L.append( (Fx[j] - Fx[k] * np.inner(x[k].conj(), x[j])).reshape(-1,1)/(zR[j] - zR[k]))
+				
+				L = np.hstack(L)
+				Lten.append(L)
 			
-			# Right tangent vector data
-			for zj, xj, Fxj in zip(zx, x, Fx):
-				for fij in Fxj:
-					Lten.append( (C.T * f[(~Ihat,*idx)]).T - C*f[(Ihat,*idx)] )
-			L = np.vstack(Lten)
+			for j in np.argwhere(~IhatL).flatten():
+				L = []
+				for k in np.argwhere(IhatL).flatten():
+					L.append( ( yF[j] - np.inner(y[j].conj(), y[k]) * yF[k] ).reshape(-1,1)/(zL[j] - zL[k]))
+				for k in np.argwhere(IhatR).flatten():
+					L.append( ( yF[j] - np.inner(yF[k], x[k]) * x[k] ).reshape(-1,1)/(zL[j] - zR[k]))
+				L = np.hstack(L)
+				Lten.append(L)
 
+			L = np.vstack(Lten)
+			
+			# Compute coefficients for denominator polynomial
+			U, s, VH = scipy.linalg.svd(L, full_matrices = False, compute_uv = True, overwrite_a = True)
+			self.b = VH.conjugate().T[:,-1] 
+		
+			self.zhat = np.hstack([zR[IhatR], zL[IhatL]])
+
+
+			# Solve linear program for coefficients
+			A = [ cp.Variable( (len(Fx[0]), len(yF[0]) ), 'A%d' % j, complex = True) for j in range(len(self.b))] 
+			constraints = []
+			# Force interpolation in tangent directions
+			ell = 0
+			for k in np.argwhere(IhatR).flatten():
+				constraints.append( A[ell] @ x[k] == Fx[k] )
+				ell += 1
+			for k in np.argwhere(IhatL).flatten():
+				constraints.append( A[ell].T @ y[k].conj() == yF[k] )
+				ell += 1 
+			
+			# Now define the objective function	
+			obj = []
+			for j in np.argwhere(~IhatR).flatten():
+				obj_j = 0 
+				denom = 0
+				ell = 0 
+				for k in np.argwhere(IhatR).flatten():
+					obj_j += (Fx[j] - A[ell] @ x[j])/ (zR[j] - zR[k])
+					denom += self.b[ell] / (zR[j] - zR[k])
+					ell += 1
+				for k in np.argwhere(IhatL).flatten():
+					obj_j += (Fx[j] - A[ell] @ x[j])/ (zR[j] - zL[k])
+					denom += self.b[ell]/ (zR[j] - zL[k])
+					ell += 1
+				obj.append(obj_j/denom)
+			
+			for j in np.argwhere(~IhatL).flatten():
+				obj_j = 0 
+				denom = 0
+				ell = 0 
+				for k in np.argwhere(IhatR).flatten():
+					obj_j += (yF[j] - A[ell].T @ y[j].conj() )/ (zL[j] - zR[k])
+					denom += self.b[ell] / (zL[j] - zR[k])
+					ell += 1
+				for k in np.argwhere(IhatL).flatten():
+					obj_j += (yF[j] - A[ell].T @ y[j].conj() )/ (zL[j] - zL[k])
+					denom += self.b[ell]/ (zL[j] - zL[k])
+					ell += 1
+				obj.append(obj_j/denom)
+
+			obj = cp.hstack(obj)
+			print(obj.shape)
+			prob = cp.Problem(cp.Minimize(cp.norm(obj, 2)), constraints)
+			prob.solve(verbose = False, max_iters = 1000)
+			print(A[0].value)
+			print(prob.status)	
+			if 'optimal' not in prob.status:	
+				j = 0
+				self.a = []
+				for k in np.argwhere(IhatR).flatten():
+					self.a.append( self.b[j] * np.outer(Fx[k], x[k].conj()))
+					j += 1
+				for k in np.argwhere(IhatL).flatten():
+					self.a.append( self.b[j] * np.outer(y[k].conj(), yF[k]))
+					j += 1
+				self.a = np.array(self.a)
+			else:
+				self.a = np.array([Ai.value for Ai in A])
+		
+			# Compute the error 
+			for j, z in enumerate(zR):
+				errorR[j] = np.max(np.abs(Fx[j] - self.__call__(z) @ x[j]))
+			for j, z in enumerate(zL):
+				Rz = self.__call__(z)
+				errorL[j] = np.max(np.abs(yF[j] - Rz @ y[j].conj() ))
+
+			res_norm = max(np.max(errorR), np.max(errorL))
+
+
+			if self.verbose:
+				if it == 0:
+					name = 'iter'
+					header = f"{name:4} |"
+					name = 'res norm'
+					header += f" {name:^14} |"
+					name = 'min sing val'
+					header += f" {name:^14} |"
+					print(header)
+					print('-'*5 + '|' + '-'*16 + '|' + '-'*16 + '|')
+
+				s_min = s[-1]
+				line = f'{it:4} | {res_norm:14.8e} | {s_min:14.8e} |'
+				print(line)
+
+			if res_norm < self.tol:
+				break
 
 
 
