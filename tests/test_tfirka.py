@@ -22,8 +22,8 @@ def test_build_Hermite():
 	err_Hp = np.max(np.abs(Hpz - Hrpz))
 
 	#Should be numerically 0
-	print "|H (z) - Hr (z)| = %1.2e" % err_H
-	print "|H'(z) - Hr'(z)| = %1.2e" % err_Hp
+	print("|H (z) - Hr (z)| = %1.2e" % err_H)
+	print("|H'(z) - Hr'(z)| = %1.2e" % err_Hp)
 
 	assert err_H < 1e-10
 	assert err_Hp < 1e-10

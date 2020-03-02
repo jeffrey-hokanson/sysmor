@@ -16,7 +16,7 @@ def test_pole_residue():
 	H2 = PoleResidueSystem(lam, rho)
 
 	err = (H - H2).norm()/H.norm()
-	print "error", err
+	print("error", err)
 	assert err < 1e-7
 
 

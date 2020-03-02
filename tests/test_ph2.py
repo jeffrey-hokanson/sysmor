@@ -10,12 +10,12 @@ def test_subspace_angle_V_M(n = 10, m = 1):
 
 	phi = subspace_angle_V_M(mu, lam)
 
-	print "%12.8e %12.8e" % (phi[0], phi[1])
+	print("%12.8e %12.8e" % (phi[0], phi[1]))
 	min_err = np.inf
 	for h in np.logspace(-7,-1,7):
 		hmu = np.hstack([ -lam + 1j*h , -lam - 1j*h ])
 		phi_approx = subspace_angle_V_V(mu, hmu)
-		print "%12.8e %12.8e; h= %5.2e" % (phi_approx[0], phi_approx[1], h)
+		print("%12.8e %12.8e; h= %5.2e" % (phi_approx[0], phi_approx[1], h))
 		err = np.linalg.norm(phi_approx - phi, np.inf)
 		if err < min_err:
 			min_err = err

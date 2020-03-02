@@ -36,14 +36,14 @@ def test_cauchy_inverse(n = 50):
 	D2 = solve_triangular(L, P.T.dot(DLP.conj().T), lower = True, trans = 'N')
 	D2 = D2.conj().T
 
-	print D
-	print D2
+	print(D)
+	print(D2)
 	err = np.linalg.norm(D - D2, np.inf)/np.linalg.norm(D, np.inf)
-	print "Error", err
+	print("Error", err)
 	assert err < 1e-7 
 	
 	diag_err = np.linalg.norm( (d - np.diag(D2))/d, np.inf)
-	print "diagonal relative error", diag_err
+	print("diagonal relative error", diag_err)
 	assert diag_err < 1e-7
 
 def test_cholesky_inv_norm(n = 50):
@@ -60,15 +60,15 @@ def test_cholesky_inv_norm(n = 50):
 
 	Minvf = np.linalg.solve(M, f)
 	norm_M = f.conj().dot(Minvf)
-	print norm_M
+	print(norm_M)
 
 	norm_L = cholesky_inv_norm(f, L, d, p)
-	print norm_L**2	
+	print(norm_L**2)
 
 	assert np.abs(norm_L**2 - norm_M)/np.abs(norm_M) < 1e-7
 
 	norm_L2 = np.linalg.norm(np.diag(d**(-0.5)).dot(solve_triangular(L, P.T.dot(f), lower = True, trans = 'N')))
-	print norm_L2**2 
+	print(norm_L2**2) 
 	assert np.abs(norm_L - norm_L2)/norm_L <1e-14
 
 def test_cauchy_hermitian_svd(n = 10):
@@ -80,7 +80,7 @@ def test_cauchy_hermitian_svd(n = 10):
 	U, s, VH = cauchy_hermitian_svd(mu)
 
 	err = np.linalg.norm(M - U.dot(np.diag(s).dot(VH)), np.inf)
-	print "error", err
+	print("error", err)
 	assert err < 1e-10
 
 if __name__ == '__main__':

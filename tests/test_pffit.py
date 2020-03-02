@@ -15,9 +15,9 @@ def test_pf_b2lam(n = 6):
 	b = pf._lam2b(lam)
 	lam2 = pf._b2lam(b)
 	I = marriage_sort(lam, lam2)
-	print lam
-	print lam2[I]
-	print marriage_norm(lam, lam2)
+	print(lam)
+	print(lam2[I])
+	print(marriage_norm(lam, lam2))
  
 def pf_check_jacobian_complex(z, f, W,  m = 5, n = 6):
 	pf = PartialFractionRationalFit(m, n, field = 'complex')
@@ -124,8 +124,8 @@ def test_pf_fit_stable():
 		pf = PartialFractionRationalFit(*arg, **kwargs)
 		pf.fit(z, f)
 		lam, rho = pf.pole_residue()
-		print kwargs
-		print lam
+		print(kwargs)
+		print(lam)
 		assert np.all(lam.real <= 0), "Did not recover a stable system"
 
 def test_pf_real():
@@ -167,11 +167,11 @@ def test_pf_normalization():
 	pf.fit(z, f)
 	lam, rho = pf.pole_residue()
 	
-	print lam
-	print lam_true
+	print(lam)
+	print(lam_true)
 
-	print rho
-	print rho_true
+	print(rho)
+	print(rho_true)
 		
 	I = marriage_sort(lam_true, lam)
 	assert np.all(np.isclose(lam_true, lam[I]))

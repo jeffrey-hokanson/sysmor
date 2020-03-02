@@ -14,10 +14,10 @@ def lagrange_roots(n = 10, deflation = True):
 	qzhat = np.array([ np.prod(z - roots) for z in zhat])
 	# print true_roots
 	I = marriage_sort(true_roots, roots)
-	print "Value at roots		  ", np.linalg.norm(p(roots), np.inf)
+	print("Value at roots		  ", np.linalg.norm(p(roots), np.inf))
 	assert np.linalg.norm(p(roots), np.inf) < 1e-12
-	print "Mismatch from true roots", np.linalg.norm(roots[I] - true_roots, np.inf)
-	print "Rel. Backward error	 ", np.linalg.norm(pzhat - qzhat, np.inf)/np.linalg.norm(pzhat)
+	print("Mismatch from true roots", np.linalg.norm(roots[I] - true_roots, np.inf))
+	print("Rel. Backward error	 ", np.linalg.norm(pzhat - qzhat, np.inf)/np.linalg.norm(pzhat))
 
 def test_lagrange_roots():
 	lagrange_roots(n = 5, deflation = True)	
