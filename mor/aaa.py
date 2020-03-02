@@ -168,6 +168,9 @@ class VectorValuedAAARationalFit(RationalFit):
 	----------
 	r: int, optional
 		Degree of rational approximation
+	tol: float, positive
+		Error (in max norm) of the resulting approximation
+	
 	"""
 	
 	def __init__(self, r, verbose = True, tol = 1e-13):
