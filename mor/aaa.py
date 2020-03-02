@@ -161,8 +161,10 @@ class AAARationalFit(RationalFit):
 class VectorValuedAAARationalFit(RationalFit):
 	r""" Construct a degree (r,r) rational approximation of array-valued data using AAA
 
-	This algorithm extends the scalar AAA algorithm for array-valued data by constructing 
-	a sequence of Loewner matrices for the data at each sample 
+	This algorithm extends the scalar AAA algorithm [NST18]_ for array-valued data by constructing 
+	a sequence of Loewner matrices for the data at each sample.  
+
+	This extension of AAA was originally presented in [LPVM18]_. 
 
 	Parameters
 	----------
@@ -171,6 +173,11 @@ class VectorValuedAAARationalFit(RationalFit):
 	tol: float, positive
 		Error (in max norm) of the resulting approximation
 	
+	References
+	----------
+	.. [LPVM18] Automatic rational approximation and linearization of nonlinear eigenvalue problems
+		https://arxiv.org/abs/1801.08622v2 
+
 	"""
 	
 	def __init__(self, r, verbose = True, tol = 1e-13):
