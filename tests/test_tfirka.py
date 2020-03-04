@@ -28,6 +28,32 @@ def test_build_Hermite():
 	assert err_H < 1e-10
 	assert err_Hp < 1e-10
 
+def test_tfirka():
+	H = build_iss()
+	H = H[0,0]
+
+	mor = TFIRKA(10, ftol = 1e-12)
+	mor.fit(H)
+	
+	err = (mor - H).norm()/H.norm()
+	print(err)
+
+
+	# Check ML interpolation conditions
+	lam = mor.poles()
+	Hz, Hpz = H.transfer(-lam.conj(), der = True)
+	Hrz, Hrpz = mor.transfer(-lam.conj(), der = True)
+	
+	for k in range(len(lam)):
+		print(lam[k], 
+			np.max(np.abs(Hz[k] - Hrz[k])), 
+			np.max(np.abs(Hpz[k] - Hrpz[k]))
+		) 
+
+	assert np.max(np.abs(Hz - Hrz)) < 1e-8
+	assert np.max(np.abs(Hpz - Hrpz)) < 1e-8
+
 
 if __name__ == '__main__':
-	test_build_Hermite()
+	#test_build_Hermite()
+	test_tfirka()
