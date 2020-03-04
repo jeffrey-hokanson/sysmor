@@ -4,14 +4,14 @@ from scipy.linalg import eig, eigvals, hessenberg
 import warnings
 
 class LagrangePolynomial:
-	""" Provides access to polynomials defined in a Lagrange basis 
+	r""" Provides access to polynomials defined in a Lagrange basis 
 
 	This class provides access to polynomials expressed in a Lagrange basis
 	given Lagrange nodes :math:`\mathbf{\widehat{z}}`: 
 
 	.. math:: 
 	
-		p(z) := \sum_j a_j \phi_j(z) \quad \phi_j(z) := \prod_{k \\ne j} \\frac{ z - \widehat{z}_k}{\widehat z_j - \widehat z_k}. 
+		p(z) := \sum_j a_j \phi_j(z) \quad \phi_j(z) := \prod_{k \ne j} \frac{ z - \widehat{z}_k}{\widehat z_j - \widehat z_k}. 
 
 	With this construction, :math:`p(\widehat{z}_j) = a_j`.
 
@@ -40,7 +40,7 @@ class LagrangePolynomial:
 	
 
 	def __call__(self, z):
-		""" Evaluate the polynomial at points z
+		r""" Evaluate the polynomial at points z
 	
 		Given a vector of points :math:`\mathbf{z}`, evaluate the polynomial at each,
 		returning the vector those values, e.g., :math:`[\mathbf{p}]_j = p(z_j)`.
@@ -65,7 +65,7 @@ class LagrangePolynomial:
 		return np.dot(V, self.a)
 	
 	def der(self, z):
-		"""Evaluate derivative of the polynomial at points z
+		r"""Evaluate derivative of the polynomial at points z
 
 		This function evaluates the derivative of :math:`p` at the values in :math:`\mathbf{z}`:
 
@@ -98,7 +98,7 @@ class LagrangePolynomial:
 		return dp
 
 	def _der(self, z):
-		""" Return derivative at a particular point
+		r""" Return derivative at a particular point
 		"""
 		# Because we may have to evaluate the derivative at the Lagrange nodes, we use a more complex formula following
 		# https://math.stackexchange.com/questions/1105160/evaluate-derivative-of-lagrange-polynomials-at-construction-points
@@ -120,24 +120,24 @@ class LagrangePolynomial:
 		return pz
 	
 	def vandmat(self, z):
-		"""Construct the Vandermonde matrix evaluating the basis polynomials at points z
+		r"""Construct the Vandermonde matrix evaluating the basis polynomials at points z
 
 		Given a set of points :math:`\mathbf{z}`, construct the Vandermonde matrix :math:`\mathbf{V}`
 		where 
  
 		.. math::
 	
-			\mathbf{V} = \\begin{bmatrix}  
-				\phi_0(z_1) & \cdots & \phi_n(z_1) \\\\
-				\\vdots & 	& \\vdots  \\\\
+			\mathbf{V} = \begin{bmatrix}  
+				\phi_0(z_1) & \cdots & \phi_n(z_1) \\
+				\vdots & 	& \vdots  \\
 				\phi_0(z_N) & \cdots & \phi_n(z_N) 
-			\\end{bmatrix}.
+			\end{bmatrix}.
  
 		Here we follow Berrut and Trefethen '04, evaluating :math:`\phi_k` using the barycentric formula:
 
 		.. math::
 		
-			\phi_k(z) := \\frac{w_k/(z - \widehat{z}_k)}{\sum_{j=0}^n w_j/(z - \widehat{z}_j)}.
+			\phi_k(z) := \frac{w_k/(z - \widehat{z}_k)}{\sum_{j=0}^n w_j/(z - \widehat{z}_j)}.
 
 
 		Parameters
@@ -185,9 +185,9 @@ class LagrangePolynomial:
 
 	
 	def roots(self, deflation = True):
-		""" Compute the roots of the polynomial
+		r""" Compute the roots of the polynomial
 
-		Compute the roots :math:`\\boldsymbol{\lambda}` of the polynomial :math:`p`:
+		Compute the roots :math:`\boldsymbol{\lambda}` of the polynomial :math:`p`:
 
 		.. math:: 
 		
@@ -199,22 +199,22 @@ class LagrangePolynomial:
 		.. math::
 
 			\lambda 
-			\\begin{bmatrix}
-				0 & \\\\
-				& 1 & \\\\
-				& & 1 \\\\
-				& & & & \ddots \\\\
+			\begin{bmatrix}
+				0 & \\
+				& 1 & \\
+				& & 1 \\
+				& & & & \ddots \\
 				& & & & & 1
-			\\end{bmatrix}
+			\end{bmatrix}
 			\mathbf{x}
 			=
-			\\begin{bmatrix}
-				0 & -a_0 & -a_1 & \ldots & -a_n \\\\
-				w_0 & \widehat{z}_0 &  & \\\\
-				w_1 & & \widehat{z}_1 & &  \\\\
-				\\vdots & & & \ddots & \\\\
+			\begin{bmatrix}
+				0 & -a_0 & -a_1 & \ldots & -a_n \\
+				w_0 & \widehat{z}_0 &  & \\
+				w_1 & & \widehat{z}_1 & &  \\
+				\vdots & & & \ddots & \\
 				w_n & & & & \widehat{z}_n
-			\\end{bmatrix}	
+			\end{bmatrix}	
 			\mathbf{x}
 
 		Returns
@@ -334,7 +334,7 @@ class LagrangePolynomial:
 
 
 class BarycentricPolynomial(LagrangePolynomial):
-	""" A Barcentric polynomial class
+	r""" A Barcentric polynomial class
 
 	"""
 	def __init__(self, zhat,  a, w):

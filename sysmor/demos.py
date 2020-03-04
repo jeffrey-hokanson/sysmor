@@ -8,17 +8,17 @@ import scipy.io
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
 def build_string(epsilon = 1):
-	""" String equation model damped on half the interval
+	r""" String equation model damped on half the interval
 
 	This function builds a transfer function defined system based on 
 	a string model from [CM09]_ subsection 2.2 as given by
 
 	.. math::
 
-		H(z) = \\frac{
-			\\frac{z}{2} \sinh(z) + 2\cosh(\\frac{z}{2}) -3\cosh^2(\\frac{z}{2}) + 1
+		H(z) = \frac{
+			\frac{z}{2} \sinh(z) + 2\cosh(\frac{z}{2}) -3\cosh^2(\frac{z}{2}) + 1
 		}{
-			z(z+\\frac{\epsilon}{2})\sinh(z) + \epsilon(2\cosh(\\frac{z}{2}) - 3\cosh^2(\\frac{z}{2})+1)
+			z(z+\frac{\epsilon}{2})\sinh(z) + \epsilon(2\cosh(\frac{z}{2}) - 3\cosh^2(\frac{z}{2})+1)
 		}.
 
 	Note: according to [MorXX]_ p. 23, this is in :math:`\mathcal{H}_\infty`, not :math:`\mathcal{H}_2`.

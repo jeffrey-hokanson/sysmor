@@ -12,17 +12,17 @@ from .aaa import AAARationalFit
 from .vecfit import VFRationalFit
 
 def subspace_angle_V_M(mu, lam, L = None, d = None, p = None):
-	"""Compute the subspace angles between V and M
+	r"""Compute the subspace angles between V and M
 
 	Defining the subspaces:
 
 	.. math::
 
-		\mathcal{V}(\\boldsymbol{\mu}) &:=  \lbrace v_\mu \\rbrace_{\mu \in \\boldsymbol{\mu}} \\\\
-		\mathcal{M}(\\boldsymbol{\lambda}) &:=  \lbrace v_{-\overline{\lambda}}, v_{-\overline{\lambda}} \\rbrace_{\lambda \in \\boldsymbol{\lambda}}
+		\mathcal{V}(\boldsymbol{\mu}) &:=  \lbrace v_\mu \rbrace_{\mu \in \boldsymbol{\mu}} \\
+		\mathcal{M}(\boldsymbol{\lambda}) &:=  \lbrace v_{-\overline{\lambda}}, v_{-\overline{\lambda}} \rbrace_{\lambda \in \boldsymbol{\lambda}}
 
-	this function returns the canonical subspace angles between :math:`\mathcal{V}(\\boldsymbol{\mu})` 
-	and :math:`\mathcal{M}(\\boldsymbol{\lambda})`.
+	this function returns the canonical subspace angles between :math:`\mathcal{V}(\boldsymbol{\mu})` 
+	and :math:`\mathcal{M}(\boldsymbol{\lambda})`.
 
 	Parameters
 	----------
@@ -150,13 +150,13 @@ def subspace_angle_V_V(mu, hmu, L = None, d = None, p = None):
 
 # TODO: Move this function somewhere else
 def cholesky_inv(f, L, d, p):
-	""" Evaluate the weighted 2-norm associated with Cholesky factorization
+	r""" Evaluate the weighted 2-norm associated with Cholesky factorization
 
 	Given a permuted Cholesky factorization of a matrix :math:`\mathbf{M}`
 
 	.. math::
 		
-		\mathbf{M} = \mathbf{P} \mathbf{L} \mathbf{D} \mathbf{L}^* \mathbf{P}^\\top
+		\mathbf{M} = \mathbf{P} \mathbf{L} \mathbf{D} \mathbf{L}^* \mathbf{P}^\top
 
 	with lower triangular matrix :math:`\mathbf{L}`, 
 	diagonal matrix :math:`\mathbf{D}`, 
@@ -178,13 +178,13 @@ def cholesky_inv(f, L, d, p):
 	return np.diag(d**(-0.5)).dot(Linvf)
 
 def cholesky_inv_norm(f, L, d, p):
-	""" Evaluate the weighted 2-norm associated with Cholesky factorization
+	r""" Evaluate the weighted 2-norm associated with Cholesky factorization
 
 	Given a permuted Cholesky factorization of a matrix :math:`\mathbf{M}`
 
 	.. math::
 		
-		\mathbf{M} = \mathbf{P} \mathbf{L} \mathbf{D} \mathbf{L}^* \mathbf{P}^\\top
+		\mathbf{M} = \mathbf{P} \mathbf{L} \mathbf{D} \mathbf{L}^* \mathbf{P}^\top
 
 	with lower triangular matrix :math:`\mathbf{L}`, 
 	diagonal matrix :math:`\mathbf{D}`, 
@@ -203,7 +203,7 @@ def cholesky_inv_norm(f, L, d, p):
 	return np.linalg.norm(cholesky_inv(f, L, d, p),2)
 
 class ProjectedH2MOR(H2MOR,PoleResidueSystem):
-	""" Projected H2-optimal Model Reduction
+	r""" Projected H2-optimal Model Reduction
 
 
 	Parameters

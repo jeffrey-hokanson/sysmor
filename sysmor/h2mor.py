@@ -4,7 +4,7 @@ import numpy as np
 
 
 class H2MOR:
-	""" Abstract Base Class for H2 Model Reduction
+	r""" Abstract Base Class for H2 Model Reduction
 
 	Parameters
 	----------
@@ -31,10 +31,10 @@ class H2MOR:
 		self.history = []
 
 	def eval_transfer(self, H, mu, der = False):
-		""" Helper function to evaluate the transfer function, recycling existing data.
+		r""" Helper function to evaluate the transfer function, recycling existing data.
 
 		Given a transfer function represented by :math:`H \in \mathcal{H}_2`,
-		evaluate the transfer function at points :math:`\\boldsymbol{\mu}\in \mathbb{C}^n`.
+		evaluate the transfer function at points :math:`\boldsymbol{\mu}\in \mathbb{C}^n`.
 
 		Parameters
 		----------
@@ -98,7 +98,7 @@ class H2MOR:
 	
 	
 	def fit(self, H, **kwargs):
-		""" Construct a reduced order model
+		r""" Construct a reduced order model
 
 		Given a linear time invariant system :math:`H`, 
 		construct a reduced order model of the specified degree.
