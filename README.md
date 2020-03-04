@@ -1,6 +1,6 @@
 SYSMOR: System-Theoretic Model Order Reduction
 --------------------------
-[![Documentation Status](https://readthedocs.org/projects/sysmor/badge/?version=latest)](https://sysmor.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/mor/badge/?version=latest)](https://mor.readthedocs.io/en/latest/?badge=latest)
 [![Build Status](https://travis-ci.org/jeffrey-hokanson/MOR.svg?branch=master)](https://travis-ci.org/jeffrey-hokanson/MOR)
 [![Coverage Status](https://coveralls.io/repos/github/jeffrey-hokanson/MOR/badge.svg?branch=master)](https://coveralls.io/github/jeffrey-hokanson/MOR?branch=master)
 
