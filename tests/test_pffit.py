@@ -110,7 +110,7 @@ def test_pf_fit():
 	assert err <= 1e-7
 
 def test_pf_fit_stable():
-	from mor.demos import build_string
+	from sysmor.demos import build_string
 	string = build_string()
 	z = 1j*np.linspace(-1000,1000,100)
 	f = np.array([string.transfer(zz) for zz in z]).reshape(-1)
