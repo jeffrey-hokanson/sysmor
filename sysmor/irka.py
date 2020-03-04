@@ -112,6 +112,21 @@ class IRKA(H2MOR, StateSpaceSystem):
 		self._total_linear_solves += nsolves
 		return Hr
 
+	def _select_shifts(self, Hr, mu_old):
+		# Compute new shifts mu
+		lam = Hr.poles()
+		# Flip into RHP
+		mu = np.abs(lam.real) + 1j* lam.imag 
+	
+		# If seeking a real ROM, force poles/residues to come in conjugate pairs 
+		if self.real:
+			I = hungarian_sort(mu, mu.conj())
+			mu = 0.5*(mu + mu[I].conj())
+			# Ensure they are accurate to all bits
+			mu[mu.imag < 0 ] = mu[mu.imag > 0].conj()
+		
+		return mu
+
 	def _fit(self, H, mu0 = None):
 		if mu0 is None:
 			mu0 = self._mu_init(H)
@@ -128,7 +143,7 @@ class IRKA(H2MOR, StateSpaceSystem):
 			# Construct an interpolant given the current estimate of the Meier-Luenberger interpolation points
 			Hr = self._fit_iterate(H, mu) 
 
-			# Flip poles into LHP and reconstruct system
+			# Flip poles into LHP and reconstruct a stable system
 			used_flip = False
 			if self.flipping:
 				lam, rho = Hr.pole_residue()
@@ -151,17 +166,7 @@ class IRKA(H2MOR, StateSpaceSystem):
 					'total_linear_solves': self._total_linear_solves,
 				})
 
-			# Compute new shifts mu
-			lam = Hr.poles()
-			# Flip into RHP
-			mu = np.abs(lam.real) + 1j* lam.imag 
-		
-			# If seeking a real ROM, force poles/residues to come in conjugate pairs 
-			if self.real:
-				I = hungarian_sort(mu, mu.conj())
-				mu = 0.5*(mu + mu[I].conj())
-				# Ensure they are accurate to all bits
-				mu[mu.imag < 0 ] = mu[mu.imag > 0].conj()
+			mu = self._select_shifts(Hr, mu_old)
 
 			I = hungarian_sort(mu, mu_old)
 			delta_mu = np.linalg.norm(mu - mu_old[I])	
@@ -173,7 +178,7 @@ class IRKA(H2MOR, StateSpaceSystem):
 				self._iter_message(it, res_norm, Hr_norm, delta_mu, used_flip, H, Hr)
 
 			# Check stopping conditions
-			if res_norm/Hr_norm < self.ftol/Hr_norm:
+			if res_norm < self.ftol:
 				if self.verbose:
 					print("Stopped due to small movement of Hr")
 				break

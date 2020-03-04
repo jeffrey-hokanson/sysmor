@@ -22,6 +22,7 @@ from .ph2 import ProjectedH2MOR, cholesky_inv, cholesky_inv_norm, subspace_angle
 from .irka import IRKA 
 from .tfirka import TFIRKA
 from .quadvf import QuadVF
+from .incremental import *
 
 # Tutorials
 #import demos

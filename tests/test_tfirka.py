@@ -1,7 +1,7 @@
 import numpy as np
 
 import sysmor
-from sysmor import TFIRKA
+from sysmor import TFIRKA, IncrementalTFIRKA
 from sysmor.tfirka import hermite_interpolant
 from sysmor.demos import build_iss
 
@@ -28,6 +28,26 @@ def test_build_Hermite():
 	assert err_H < 1e-10
 	assert err_Hp < 1e-10
 
+def test_tfirka():
+	H = build_iss()
+	H = H[0,0]
+
+	mor = TFIRKA(10)
+	mor.fit(H)
+	
+	err = (mor - H).norm()/H.norm()
+	print(err)
+
+def test_itfirka():
+	H = build_iss()
+	H = H[0,0]
+
+	mor = IncrementalTFIRKA(50, ftol = 0, print_norm = True)
+	mor.fit(H)
+	
+	err = (mor - H).norm()/H.norm()
+	print(err)
 
 if __name__ == '__main__':
-	test_build_Hermite()
+	#test_build_Hermite()
+	test_itfirka()
