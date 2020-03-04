@@ -2,11 +2,11 @@ import os
 from setuptools import setup
 
 
-setup(name='mor',
+setup(name='sysmor',
 	version = '0.1',
-	description = 'Model Order Reduction',
+	description = 'System-Theoertic Model Order Reduction',
 	author = 'Jeffrey M. Hokanson',
-	packages = ['mor', 'mor.opt'],
+	packages = ['sysmor',],
 	install_requires = [
 		'numpy', 
 		'scipy', 
