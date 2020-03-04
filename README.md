@@ -18,3 +18,9 @@ Associated Publications
 * [H2-Optimal Model Reduction Using Projected Nonlinear Least Squares](https://arxiv.org/abs/1811.11962)
 * [Least Squares Rational Approximation](https://arxiv.org/abs/1811.12590)
 
+
+Alternative Software Packages
+-----------------------------
+
+* [pyMOR](https://pymor.org)
+
