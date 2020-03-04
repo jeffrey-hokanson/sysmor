@@ -479,7 +479,7 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			rho[~valid] = 0.
 			Hr = PoleResidueSystem(lam, rho)	
 			Hr_norm = Hr.norm()
-			delta_Hr = (Hr - Hr_old).norm()/Hr_norm
+			delta_Hr = (Hr - Hr_old).norm()
 			
 			###################################################################
 			# Print Logging messages
@@ -529,7 +529,7 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			# Break if termination conditions are met
 			###################################################################
 			if rom_dim == self.rom_dim:
-				if delta_Hr < self.ftol/Hr_norm:
+				if delta_Hr < self.ftol:
 					if self.verbose:
 						print("Stopped due to small movement of Hr")
 					break
