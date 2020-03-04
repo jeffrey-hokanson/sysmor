@@ -1,7 +1,7 @@
 import numpy as np
 
-from mor import PoleResidueSystem, StateSpaceSystem
-from mor.demos import build_iss
+from sysmor import PoleResidueSystem, StateSpaceSystem
+from sysmor.demos import build_iss
 
 def test_pole_residue():
 	#H = build_iss()

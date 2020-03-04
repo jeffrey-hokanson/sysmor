@@ -1,9 +1,9 @@
 import numpy as np
 
-import mor
-from mor import TFIRKA
-from mor.tfirka import hermite_interpolant
-from mor.demos import build_iss
+import sysmor
+from sysmor import TFIRKA
+from sysmor.tfirka import hermite_interpolant
+from sysmor.demos import build_iss
 
 def test_build_Hermite():
 	# Test that we in-fact build a Hermite interpolant system

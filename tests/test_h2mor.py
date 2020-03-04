@@ -1,6 +1,6 @@
 import numpy as np
-from mor import H2MOR
-from mor.demos import build_string
+from sysmor import H2MOR
+from sysmor.demos import build_string
 
 
 def test_eval_transfer_complex():

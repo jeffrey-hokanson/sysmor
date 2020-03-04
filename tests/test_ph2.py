@@ -1,7 +1,7 @@
 import numpy as np
-from mor.ph2 import subspace_angle_V_M, subspace_angle_V_V
-from mor import ProjectedH2MOR
-from mor.demos import build_iss
+from sysmor.ph2 import subspace_angle_V_M, subspace_angle_V_V
+from sysmor import ProjectedH2MOR
+from sysmor.demos import build_iss
 
 def test_subspace_angle_V_M(n = 10, m = 1):
 

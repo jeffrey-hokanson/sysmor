@@ -1,7 +1,7 @@
 from __future__ import division
 import numpy as np
 from scipy.linalg import solve_triangular
-from mor import cauchy_ldl, cholesky_inv_norm, cauchy_hermitian_svd
+from sysmor import cauchy_ldl, cholesky_inv_norm, cauchy_hermitian_svd
 
 def test_cauchy_forward(n = 100):
 	""" Test the error in the LDL* decomposition using

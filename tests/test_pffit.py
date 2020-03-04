@@ -1,8 +1,8 @@
 import numpy as np
 from scipy.optimize import least_squares
-from mor import PartialFractionRationalFit
-from mor.check_der import check_jacobian
-from mor import marriage_norm, marriage_sort
+from sysmor import PartialFractionRationalFit
+from sysmor.check_der import check_jacobian
+from sysmor import marriage_norm, marriage_sort
 
 
 def test_pf_b2lam(n = 6):

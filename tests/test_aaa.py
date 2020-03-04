@@ -1,6 +1,6 @@
 import numpy as np
-from mor import AAARationalFit
-from mor import VectorValuedAAARationalFit
+from sysmor import AAARationalFit
+from sysmor import VectorValuedAAARationalFit
 
 def aaa_tan(N = 1000, m = 10, coeff = 4, norm = np.inf):
 	""" Generate residual corresponding to [Fig. 6.4, NST18]

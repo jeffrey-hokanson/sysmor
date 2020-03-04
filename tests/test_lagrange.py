@@ -1,5 +1,5 @@
 import numpy as np
-from mor import marriage_norm, marriage_sort, LagrangePolynomial
+from sysmor import marriage_norm, marriage_sort, LagrangePolynomial
 
 
 def lagrange_roots(n = 10, deflation = True):
