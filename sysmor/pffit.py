@@ -12,7 +12,7 @@ from itertools import product
 
 
 class PartialFractionRationalFit(OptimizationRationalFit):
-	""" Fit rational approximation using a partial fraction expansion.
+	r""" Fit rational approximation using a partial fraction expansion.
 
 	This class fits a rational approximation with :math:`m\ge n-1`
 	using a partial fraction expansion. If the rational functions are posed over the complex field, 
@@ -20,25 +20,25 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 
 	.. math::
 		
-		r(z; \\boldsymbol{\lambda}, \\boldsymbol{\\rho}, \mathbf{c}) :=
-			\sum_{k=1}^n \\frac{\\rho_k}{z - \lambda_k} + \sum_{k=0}^{m-n} c_k \\varphi_k(z)
+		r(z; \boldsymbol{\lambda}, \boldsymbol{\rho}, \mathbf{c}) :=
+			\sum_{k=1}^n \frac{\rho_k}{z - \lambda_k} + \sum_{k=0}^{m-n} c_k \varphi_k(z)
 
-	where :math:`\\varphi_k` is polynomial basis. Then the optimization problem is posed over the real
-	and imaginary parts of :math:`\\boldsymbol{\lambda}`, :math:`\\boldsymbol{\\rho}`, and :math:`\mathbf{c}`.
+	where :math:`\varphi_k` is polynomial basis. Then the optimization problem is posed over the real
+	and imaginary parts of :math:`\boldsymbol{\lambda}`, :math:`\boldsymbol{\rho}`, and :math:`\mathbf{c}`.
 	When rational functions are posed over the real field, a 2-term partial fraction expansion is used 
 	to impliclitly enforce this constraint
 
 	.. math:: 
 
 		r(z; \mathbf{a}, \mathbf{ b}, \mathbf{ c} ) = 
-		\sum_{k=0}^{m-n} c_k \\varphi_k(z)
+		\sum_{k=0}^{m-n} c_k \varphi_k(z)
 		+
-		\\begin{cases}
-			\displaystyle \phantom{\\frac{a_n}{z + b_n}}\phantom{+}
-			\sum_{k=1}^{\lfloor n/2 \\rfloor} \\frac{ a_{2k} z + a_{2k-1}}{z^2 + b_{2k} z + b_{2k-1}}, & n \\text{ even;}\\\\
-			\displaystyle \\frac{a_n}{z + b_n}
-			+ \! \sum_{k=1}^{\lfloor n/2 \\rfloor} \\frac{ a_{2k} z + a_{2k-1}}{z^2 + b_{2k} z + b_{2k-1}}, 
-			& n \\text{ odd;}
+		\begin{cases}
+			\displaystyle \phantom{\frac{a_n}{z + b_n}}\phantom{+}
+			\sum_{k=1}^{\lfloor n/2 \rfloor} \frac{ a_{2k} z + a_{2k-1}}{z^2 + b_{2k} z + b_{2k-1}}, & n \text{ even;}\\
+			\displaystyle \frac{a_n}{z + b_n}
+			+ \! \sum_{k=1}^{\lfloor n/2 \rfloor} \frac{ a_{2k} z + a_{2k-1}}{z^2 + b_{2k} z + b_{2k-1}}, 
+			& n \text{ odd;}
 		\end{cases}
 
 	and the optimization problem is posed over the *real* parameters :math:`\mathbf{a}`, :math:`\mathbf{b}`, and :math:`\mathbf{c}`.	
@@ -91,7 +91,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		return self.lam, self.rho
 	
 	def vandmat(self, lam, z = None):
-		""" Builds the Vandermonde-like matrix for the pole-residue parameterization
+		r""" Builds the Vandermonde-like matrix for the pole-residue parameterization
 		""" 
 		if z is None:
 			z = self.z
@@ -107,7 +107,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		return V
 
 	def vandmat_der(self, lam):
-		""" Builds the column-wise derivative of the Vandermonde-like matrix for the pole-residue parameterization
+		r""" Builds the column-wise derivative of the Vandermonde-like matrix for the pole-residue parameterization
 		""" 
 		Vp = (np.tile(self.z.reshape(-1,1), (1,self.n)) -  np.tile(lam.reshape(1,-1), (len(self.z), 1)))**(-2)
 		return Vp
@@ -177,7 +177,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 
 
 	def residual_jacobian_real(self, b, jacobian = True, return_real = True):
-		""" Construct the residual and Jacobian for the pole-residue parameterization with real pairs
+		r""" Construct the residual and Jacobian for the pole-residue parameterization with real pairs
 		"""
 	
 		zt = self._transform(self.z)
@@ -297,7 +297,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 
 
 	def _lam2b(self, lam):
-		""" Convert a set of poles into a denominator in a 2-term partial fraction expansion
+		r""" Convert a set of poles into a denominator in a 2-term partial fraction expansion
 		"""
 		# project lam so that it is in the space of acceptable lam
 		I = hungarian_sort(lam, lam.conjugate())

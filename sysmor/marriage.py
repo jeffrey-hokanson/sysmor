@@ -3,7 +3,7 @@ from scipy.spatial.distance import cdist
 from scipy.optimize import linear_sum_assignment
 
 def marriage_sort(a, b):
-	""" Align two vectors so that entry-wise using the stable marriage algorithm
+	r""" Align two vectors so that entry-wise using the stable marriage algorithm
 
 	Implements the Gale-Shapely algorithm [GS62]_ to align two vectors of complex numbers
 	such that the mismatch under the permutation is minimized.
@@ -66,7 +66,7 @@ def marriage_sort(a, b):
 	return a_engaged
 
 def marriage_norm(a, b):
-	""" Returns the 2-norm where entries have been permuted to minimize the norm
+	r""" Returns the 2-norm where entries have been permuted to minimize the norm
 
 	Given two (complex) vectors :math:`\mathbf{a}` and :math:`\mathbf{b}`, 
 	compute the permutation :math:`\mathcal{I}` such that the 2-norm is minimized,

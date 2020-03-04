@@ -6,7 +6,7 @@ from .lagrange import LagrangePolynomial
 
 
 class RationalFit:
-	"""An abstract base class for rational approximation algorithms
+	r"""An abstract base class for rational approximation algorithms
 
 	Subclasses of this abstract base class construct least squares rational approximations in the sense
 
@@ -95,7 +95,7 @@ class RationalFit:
 		return None
 
 	def fit(self, z, f, lam0 = None, W = None):
-		""" Fit a rational function to measurements 
+		r""" Fit a rational function to measurements 
 
 		Solve the least squares rational approximation problem given pairs of 
 		:math:`z_j, f(z_j)` stored in vectors `z` and `f`.
@@ -145,19 +145,19 @@ class RationalFit:
 
 
 	def pole_residue(self):
-		"""Return the poles and residues of the rational function
+		r"""Return the poles and residues of the rational function
 
 		"""
 		return self._pole_residue()	
 	
 
 	def to_system(self):
-		""" Convert the rational approximation to a system 
+		r""" Convert the rational approximation to a system 
 		"""
 		raise NotImplementedError
 
 	def _transform(self, z):
-		"""Apply shift-and-scale transform to input coordinates
+		r"""Apply shift-and-scale transform to input coordinates
 		This transform maps the larger of the real or imaginary coordinates to [-1,1] 
 		"""
 		max_real = self._max_real
@@ -185,7 +185,7 @@ class RationalFit:
 		return z
 
 	def _legendre_vandmat(self, degree, z = None):
-		""" A scaled and shifted Legendre polynomial basis		
+		r""" A scaled and shifted Legendre polynomial basis		
 		"""
 		if z is None:
 			z = self.z
@@ -193,7 +193,7 @@ class RationalFit:
 		return legvander(zt, degree)
 	
 	def _legendre_roots(self, c):
-		""" Compute the roots of the scaled and shifted Legendre polynomial
+		r""" Compute the roots of the scaled and shifted Legendre polynomial
 		"""
 		lam = legroots(c)
 		lam = self._inverse_transform(lam)		
@@ -216,7 +216,7 @@ class RationalFit:
 		return lam
 
 	def _generate_zhat(self, m):
-		""" Generate well-distributed nodes
+		r""" Generate well-distributed nodes
 		"""
 	
 		# Place nodes at Chebyshev points of 2nd kind (on -1,1)

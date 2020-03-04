@@ -7,16 +7,16 @@ from .aaa import AAARationalFit
 from .check_der import check_jacobian, check_gradient
 
 class PolynomialBasisRationalFit(RationalFit):
-	"""Fits a rational approximation parameterized using two polynomial bases
+	r"""Fits a rational approximation parameterized using two polynomial bases
 
-	Given a basis for the numerator :math:`\lbrace \phi_k\\rbrace_{k=0}^m`
-	and denominator :math:`\lbrace \psi_k\\rbrace_{k=0}^n`, this class fits a rational
+	Given a basis for the numerator :math:`\lbrace \phi_k\rbrace_{k=0}^m`
+	and denominator :math:`\lbrace \psi_k\rbrace_{k=0}^n`, this class fits a rational
 	approximation to :math:`z_j, f(z_j)` using the paramterization
 
 	.. math::
 
 		r(z; \mathbf{a}, \mathbf{b}) := 
-			\\frac{\sum_{k=0}^m a_k \phi_k(z)}{\sum_{k=0}^n b_k \psi_k(z)}.
+			\frac{\sum_{k=0}^m a_k \phi_k(z)}{\sum_{k=0}^n b_k \psi_k(z)}.
 
 	This class offers two choices of bases for the numerator and denominator separately:
 	

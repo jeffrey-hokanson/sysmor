@@ -3,7 +3,7 @@ import scipy.linalg
 __all__ = ['cauchy_ldl', 'cauchy_hermitian_svd']
 
 def cauchy_ldl(mu):
-	""" Compute LDL* factorization of Cauchy matrix
+	r""" Compute LDL* factorization of Cauchy matrix
 
 	Given a Hermitian Cauchy matrix specified by parameters :math:`\\boldsymbol{\mu}\in \mathbb{C}^n`
 	where 
