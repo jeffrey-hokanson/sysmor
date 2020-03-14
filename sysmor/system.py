@@ -512,7 +512,13 @@ class StateSpaceSystem(LTISystem):
 					if any([isinstance(w_, RuntimeWarning) for w_ in w]):
 						return np.nan
 					norm2_term = np.dot(self.C[j,:], np.dot(X, self.C[j,:].conjugate().T))
-				if norm2_term < 0:
+
+				# TODO: Fix this kludge
+				# When very close to being zero we should not error out
+				# if slightly negative
+				if np.abs(norm2_term) < np.finfo(float).eps:
+					norm2_term = np.abs(norm2_term.real)
+				elif norm2_term < 0:
 					return np.nan
 				norm2 += norm2_term
 		return np.sqrt(norm2.real)
