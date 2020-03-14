@@ -42,7 +42,7 @@ def test_itfirka():
 	H = build_iss()
 	H = H[0,0]
 
-	mor = IncrementalTFIRKA(50, ftol = 0, print_norm = True)
+	mor = IncrementalTFIRKA(10, ftol = 1e-12, print_norm = True)
 	mor.fit(H)
 	
 	err = (mor - H).norm()/H.norm()
