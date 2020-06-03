@@ -15,8 +15,14 @@ For a full discussion, see the [documentation](https://mor.readthedocs.io).
 Associated Publications
 -----------------------
 
-* [H2-Optimal Model Reduction Using Projected Nonlinear Least Squares](https://arxiv.org/abs/1811.11962)
+This repository is associated with the following manuscripts.
+For some, the code associated with the numerical experiments and figures
+are available.
+
+* [H2-Optimal Model Reduction Using Projected Nonlinear Least Squares](https://arxiv.org/abs/1811.11962) [Experiments](Reproducibility/PH2)
 * [Least Squares Rational Approximation](https://arxiv.org/abs/1811.12590)
+
+
 
 
 Alternative Software Packages
