@@ -1,6 +1,7 @@
 # (c) Jeffrey M. Hokanson May 2018
 import numpy as np
 import warnings
+import scipy.linalg
 from scipy.linalg import solve_triangular, lstsq, svd
 from scipy.optimize import least_squares
 from .lagrange import LagrangePolynomial, BarycentricPolynomial
