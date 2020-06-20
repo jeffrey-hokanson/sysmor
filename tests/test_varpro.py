@@ -40,7 +40,7 @@ def test_varpro_colwise():
 	r_ = b_ - Q_ * Q_.H * b_
 	err = np.linalg.norm(np.array(r_, dtype = np.float) - r)
 	print("error wrt MP math", err)
-	assert False
+#	assert False
 
 	# Check Jacobian
 	r, K, L = varpro_residual_jacobian_colwise(b, A, DA)
