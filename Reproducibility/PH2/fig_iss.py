@@ -1,11 +1,11 @@
 import numpy as np
 from scipy.linalg import svdvals
-from mor import ProjectedH2MOR, IRKA, TFIRKA, QuadVF
-from mor import cauchy_ldl
-from mor.demos import build_iss
-from mor.pgf import PGF
+from sysmor import ProjectedH2MOR, IRKA, TFIRKA, QuadVF
+from sysmor import cauchy_ldl
+from sysmor.demos import build_iss
+from sysmor.pgf import PGF
 import argparse
-
+import tqdm
 
 def run_mor(MOR, rs, prefix, hist = False, **kwargs):
 	rs = np.atleast_1d(rs)
@@ -16,12 +16,18 @@ def run_mor(MOR, rs, prefix, hist = False, **kwargs):
 
 	H_norm = H.norm()
 
+
 	rel_err = np.nan*np.zeros(rs.shape)	
 	fom_evals = np.nan*np.zeros(rs.shape)
 	
 	# Bode plots
+	print("starting bode")
 	z = 1j*np.logspace(-1, 3, 600)
-	Hz = H.transfer(z)
+	Hz = np.zeros((len(z),1,1), dtype = np.complex)
+	for j in tqdm.trange(len(z)):
+		Hz[j] = H.transfer(z[j]).flatten()
+	#Hz = H.transfer(z)
+	print("Bode data")
 
 	for i, r in enumerate(rs):
 		# Everything is deterministic, but I'm still seeing changes between runs
@@ -152,7 +158,9 @@ if __name__ == '__main__':
 	if alg == 'quadvf':
 		run_mor(QuadVF, rs, 'data/fig_iss_quadvf', hist = hist, verbose = 10, N = 100, ftol = ftol, L = 10)
 	elif alg == 'ph2':
-		run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2', hist = hist, verbose = 10, print_norm = True, ftol = ftol)
+		run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2', hist = hist, verbose = 1, print_norm = True, ftol = ftol)
+	elif alg == 'ph2_dist':
+		run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2_dist', hist = hist, verbose = 1, print_norm = True, ftol = ftol, subspace_mode = 'dist')
 	elif alg == 'irka':
 		run_mor(IRKA, rs, 'data/fig_iss_irka', hist = hist, verbose = True, print_norm = True, ftol = ftol)
 	elif alg == 'tfirka':
