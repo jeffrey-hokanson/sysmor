@@ -152,7 +152,9 @@ if __name__ == '__main__':
 	if alg == 'quadvf':
 		run_mor(QuadVF, rs, 'data/fig_iss_quadvf', hist = hist, verbose = 10, N = 100, ftol = ftol, L = 10)
 	elif alg == 'ph2':
-		run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2', hist = hist, verbose = 10, print_norm = True, ftol = ftol)
+		run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2', hist = hist, verbose = 1, print_norm = True, ftol = ftol)
+	elif alg == 'ph2_dist':
+		run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2_dist', hist = hist, verbose = 1, print_norm = True, ftol = ftol, subspace_mode = 'dist')
 	elif alg == 'irka':
 		run_mor(IRKA, rs, 'data/fig_iss_irka', hist = hist, verbose = True, print_norm = True, ftol = ftol)
 	elif alg == 'tfirka':

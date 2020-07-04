@@ -1,5 +1,6 @@
 from __future__ import division
 import numpy as np
+import scipy.linalg
 from scipy.linalg import solve_triangular, cholesky, svdvals
 from warnings import catch_warnings
 from .system import StateSpaceSystem, PoleResidueSystem, ZeroSystem
@@ -91,6 +92,36 @@ def subspace_angle_V_M(mu, lam, L = None, d = None, p = None):
 	#	phi = np.nan*phi 
 	return phi
 
+def subspace_angle_V_M_gep(mu, lam, L = None, d = None, p = None):
+	if (L is None) or (d is None) or (p is None):
+		L, d, p = cauchy_ldl(mu)	
+	n = len(mu)
+	m = len(lam)
+	
+
+	# Build the Gram matrix for T(\lambda)	
+	Mhat11 = (np.tile(-lam.conj().reshape(m,1), (1,m)) - np.tile(lam.reshape(1,m), (m,1)))**(-1) 
+	Mhat12 = (np.tile(-lam.conj().reshape(m,1), (1,m)) - np.tile(lam.reshape(1,m), (m,1)))**(-2) 
+	Mhat21 = ((np.tile(-lam.conj().reshape(m,1), (1,m)) - np.tile(lam.reshape(1,m), (m,1)))**(-2)).conj().T 
+	Mhat22 = 2*(np.tile(-lam.conj().reshape(m,1), (1,m)) - np.tile(lam.reshape(1,m), (m,1)))**(-3)
+	
+	Mhat = np.vstack([np.hstack([Mhat11, Mhat12]), np.hstack([Mhat21, Mhat22])]) 
+
+	# Cross terms
+	B11 = (np.tile(mu.reshape(n, 1), (1,m)) - np.tile(lam.reshape(1,m), (n,1)))**(-1)
+	B12 = (np.tile(mu.reshape(n, 1), (1,m)) - np.tile(lam.reshape(1,m), (n,1)))**(-2)
+	B = np.hstack([ B11, B12])
+
+	MinvB = np.diag(d**(-0.5)) @ solve_triangular(L, B[p], lower = True, trans = 'N') 	
+	
+	if False:
+		ew = scipy.linalg.eigvalsh(Mhat - MinvB.conj().T @ MinvB, Mhat, driver = 'heev') 
+	else:
+		ew = scipy.linalg.eigvalsh(- MinvB.conj().T @ MinvB, Mhat, driver = 'heev') 
+		ew += 1
+	ew = np.maximum(ew, 0)
+	phi = np.arcsin(np.sqrt(ew))
+	return phi
 
 def subspace_angle_V_V(mu, hmu, L = None, d = None, p = None):
 	r"""Compute the subspace angles between V(mu) and V(hmu)
@@ -228,7 +259,8 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 		
 	"""
 	def __init__(self, rom_dim, real = True, maxiter = 1000, verbose = False, ftol = 1e-9, 
-		cond_max= 1e18, growth = 10, print_norm = False, spectral_abscissa = -1e-6):
+		cond_max= 1e18, growth = 10, print_norm = False, spectral_abscissa = -1e-6,
+		subspace_mode = 'angle'):
 		H2MOR.__init__(self, rom_dim, real = real)
 		self.maxiter = maxiter
 		self.verbose = verbose
@@ -238,6 +270,7 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 		self.print_norm = print_norm
 		self.growth = growth
 		self._spectral_abscissa = spectral_abscissa
+		self.subspace_mode = subspace_mode
 
 	def _mu_init(self, H):
 		if isinstance(H, StateSpaceSystem):
@@ -258,6 +291,86 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 				mu0 = 0.5*(mu0 + mu0[I].conjugate())
 			return mu0	
 		raise NotImplementedError
+
+	def _choose_mu_star_angle(self, mu, lam_can, L, d, p):
+		
+		# Compute the subspace angle for each
+		max_angles = np.nan*np.zeros(len(lam_can))
+		for i in range(len(lam_can)):
+			max_angles[i] = np.max(subspace_angle_V_M(mu, lam_can[i], L = L, d = d, p = p))
+
+		while True:
+			try:	
+				k = np.nanargmax(max_angles)
+			except ValueError as e:
+				print("No valid new shifts found")
+				raise e
+
+			mu_star = -lam_can[k].conj()
+			max_angle = max_angles[k]
+			# Ensure we have a distinct mu
+			if np.min(np.abs(mu_star - mu)) == 0:
+				max_angles[k] = np.nan
+			else:
+				break			
+		
+#		if self.verbose >= 10:
+#			print("")
+#			for i in range(len(lam)):
+#				line = 'angle %10.4f | ' % (180/np.pi*max_angles[i])
+#				line += 'lam %+5.2e  %+5.2e I | ' % (lam[i].real, lam[i].imag)
+#				line += 'rho %+5.2e  %+5.2e I | ' % (rho[i].real, rho[i].imag)
+#				line += 'lam_can %+5.2e  %+5.2e I | ' % (lam_can[i].real, lam_can[i].imag)
+#				line += 'lam_aaa %+5.2e  %+5.2e I | ' % (lam_aaa[i].real, lam_aaa[i].imag)
+#
+##				if valid[i]:
+##					line += '   '
+##				else:
+##					line += ' X '
+#
+#				if i == k:
+#					line += " <=== "
+#				else:
+#					line += "      "
+#			
+#				print(line)
+#			print("")
+		
+		return mu_star, max_angles[k]
+
+		
+
+	def _choose_mu_star_dist(self, mu, lam_can, L, d, p):
+		min_dists = np.nan*np.zeros(len(lam_can))
+		for i in range(len(lam_can)):
+			min_dists[i] = np.min(np.abs(lam_can[i] + mu.conj()))/np.abs(lam_can[i].real)
+			
+		k = np.argmax(min_dists)
+		mu_star = -lam_can[k].conj()
+		
+#		if self.verbose >= 10:
+#			print("")
+#			for i in range(len(lam)):
+#				line = 'dist %10.4g | ' % (min_dists[i])
+#				line += 'lam %+5.2e  %+5.2e I | ' % (lam[i].real, lam[i].imag)
+#				line += 'rho %+5.2e  %+5.2e I | ' % (rho[i].real, rho[i].imag)
+#				line += 'lam_can %+5.2e  %+5.2e I | ' % (lam_can[i].real, lam_can[i].imag)
+#				line += 'lam_aaa %+5.2e  %+5.2e I | ' % (lam_aaa[i].real, lam_aaa[i].imag)
+#
+##				if valid[i]:
+##					line += '   '
+##				else:
+##					line += ' X '
+#
+#				if i == k:
+#					line += " <=== "
+#				else:
+#					line += "      "
+#			
+#				print(line)
+#			print("")
+		
+		return mu_star, min_dists[k]	
 
 	def _fit(self, H, mu0 = None):
 		# If a spectral abscissa hasn't been provided, use that of the FOM
@@ -415,8 +528,6 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			for i in range(len(lam)):
 				valid[i] = valid[i] & np.all(abs(lam[i] - lam[0:i])>1e-8) & np.all(abs(lam[i] - lam[i+1:]) > 1e-8)
 
-			
-
 			###################################################################
 			# Choose new interpolation point
 			###################################################################
@@ -424,51 +535,13 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			lam_can = np.copy(lam)
 			# Use AAA poles when a pole of Hr is invalid			
 			lam_can[~valid] = lam_aaa[~valid]
-
-			# Compute the subspace angle for each
-			max_angles = np.nan*np.zeros(len(lam))
-			for i in range(len(lam)):
-				max_angles[i] = np.max(subspace_angle_V_M(mu, lam_can[i], L = L, d = d, p = p))
-
-			while True:
-				try:	
-					k = np.nanargmax(max_angles)
-				except ValueError as e:
-					print("No valid new shifts found")
-					raise e
-
-				mu_star = -lam_can[k].conj()
-				max_angle = max_angles[k]
-				# Ensure we have a distinct mu
-				if np.min(np.abs(mu_star - mu)) == 0:
-					max_angles[k] = np.nan
-				else:
-					break			
-
-	
-
-			if self.verbose >= 10:
-				print("")
-				for i in range(len(lam)):
-					line = 'angle %10.4f | ' % (180/np.pi*max_angles[i])
-					line += 'lam %+5.2e  %+5.2e I | ' % (lam[i].real, lam[i].imag)
-					line += 'rho %+5.2e  %+5.2e I | ' % (rho[i].real, rho[i].imag)
-					line += 'lam_can %+5.2e  %+5.2e I | ' % (lam_can[i].real, lam_can[i].imag)
-					line += 'lam_aaa %+5.2e  %+5.2e I | ' % (lam_aaa[i].real, lam_aaa[i].imag)
-
-					if valid[i]:
-						line += '   '
-					else:
-						line += ' X '
-
-					if i == k:
-						line += " <=== "
-					else:
-						line += "      "
+		
+			if self.subspace_mode == 'angle':
+				mu_star, max_angle = self._choose_mu_star_angle(mu, lam_can, L, d, p)
 				
-					print(line)
-				print("")
-
+			elif self.subspace_mode == 'dist':	
+				mu_star, max_angle = self._choose_mu_star_dist(mu, lam_can, L, d, p)
+			
 			
 
 			###################################################################
@@ -502,7 +575,7 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 				else:
 					init = 'lam'
 				res_norm = min(res_norm1, res_norm2)	
-				iter_message = "%4d | %3d |   %7d | %8.2e | %8.2e | %8.2e%+8.2ei | %8.2e | %9.6f | %6s |" % \
+				iter_message = "%4d | %3d |   %7d | %8.2e | %8.2e | %8.2e%+8.2ei | %8.2e | %9.6g | %6s |" % \
 					(it,rom_dim, self._total_fom_evals, delta_Hr, cond_M, mu_star.real, mu_star.imag,
 					res_norm/H_norm_est, 180*max_angle/np.pi, init )
 
