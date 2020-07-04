@@ -1,9 +1,9 @@
 import numpy as np
 from scipy.linalg import svdvals
-from mor import ProjectedH2MOR, IRKA, TFIRKA, QuadVF
-from mor import cauchy_ldl
-from mor.demos import build_iss
-from mor.pgf import PGF
+from sysmor import ProjectedH2MOR, IRKA, TFIRKA, QuadVF
+from sysmor import cauchy_ldl
+from sysmor.demos import build_iss
+from sysmor.pgf import PGF
 import argparse
 
 

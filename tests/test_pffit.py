@@ -76,7 +76,7 @@ def test_pf_jacobian_tan():
 	W2 = lambda x: np.dot(W2a, x)
 	
 	# Check for different orders, including n: even, odd and additional polynomial terms
-	for (m,n) in [(5,6), (7,6), (4,5), (6,5)]:
+	for (m,n) in [(2,3), (5,6), (7,6), (4,5), (6,5)]:
 		# unweighted / weighted check
 		for W in [W1, W2]:
 			print("Checking varpro complex jacobian: m=%d, n=%d" % (m,n))
@@ -136,21 +136,22 @@ def test_pf_real():
 	f = np.tan(coeff*z)
 	
 
-	for m, n in [(9,10), (10,11), (12,10)]:
-		pf = PartialFractionRationalFit(9,10, field = 'real')
+	for m, n in [(3,3), (3,4), (9,10), (10,11), (13,11), (12,10)]:
+		print("="*10, "m,n", (m,n), "="*10)
+		pf = PartialFractionRationalFit(m,n, field = 'real')
 		pf.fit(z, f)
 		
-		# Solve the rational approximation problem again
-		b0 = pf._lam2b(pf.lam)
-		res = lambda b: pf.residual_real(b, return_real = True)
-		jac = lambda b: pf.jacobian_real(b)
-		
-		result = least_squares(res, b0, jac)
-		residual = result.cost
+		#print('data', 0.5*np.linalg.norm(f)**2)
+		#print("squared objective function", residual)
+		r1 = f - pf(z)
+		print("mismatch", r1)
+		r2 = pf.residual_real(pf.b, return_real = False)
+		print('residual', r2)
+		assert np.linalg.norm(r1 -r2) < 1e-7
 		# Check that the conversion between pole/residue and the real parameterization 
 		# matches
-		converted_residual = 0.5*np.linalg.norm(f - pf(z))**2
-		assert np.abs(residual - converted_residual) < 1e-7
+#		converted_residual = 0.5*np.linalg.norm(f - pf(z))**2
+#		assert np.abs(residual - converted_residual) < 1e-7
 		
 def test_pf_normalization():
 	N = 100
