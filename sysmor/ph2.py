@@ -259,7 +259,7 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 		
 	"""
 	def __init__(self, rom_dim, real = True, maxiter = 1000, verbose = False, ftol = 1e-9, 
-		cond_max= 1e18, growth = 10, print_norm = False, spectral_abscissa = -1e-6,
+		cond_max = 1e18, growth = 10, print_norm = False, spectral_abscissa = 0,
 		subspace_mode = 'angle'):
 		H2MOR.__init__(self, rom_dim, real = real)
 		self.maxiter = maxiter
@@ -312,32 +312,16 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			if np.min(np.abs(mu_star - mu)) == 0:
 				max_angles[k] = np.nan
 			else:
-				break			
-		
-#		if self.verbose >= 10:
-#			print("")
-#			for i in range(len(lam)):
-#				line = 'angle %10.4f | ' % (180/np.pi*max_angles[i])
-#				line += 'lam %+5.2e  %+5.2e I | ' % (lam[i].real, lam[i].imag)
-#				line += 'rho %+5.2e  %+5.2e I | ' % (rho[i].real, rho[i].imag)
-#				line += 'lam_can %+5.2e  %+5.2e I | ' % (lam_can[i].real, lam_can[i].imag)
-#				line += 'lam_aaa %+5.2e  %+5.2e I | ' % (lam_aaa[i].real, lam_aaa[i].imag)
-#
-##				if valid[i]:
-##					line += '   '
-##				else:
-##					line += ' X '
-#
-#				if i == k:
-#					line += " <=== "
-#				else:
-#					line += "      "
-#			
-#				print(line)
-#			print("")
-		
+				break		
+	
 		return mu_star, max_angles[k]
 
+
+	def _choose_mu_star_alt(self, mu, lam_can, L, d, p, it):
+		if it % 2 == 0:
+			return self._choose_mu_star_angle(mu, lam_can, L, d, p)
+		else:
+			return self._choose_mu_star_dist(mu, lam_can, L, d, p)
 		
 
 	def _choose_mu_star_dist(self, mu, lam_can, L, d, p):
@@ -423,7 +407,7 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 			cond_M = np.max(s)/np.min(s)
 			if rom_dim == self.rom_dim and (cond_M > self.cond_max):
 				if self.verbose:
-					print("Stopped due to large condition number of M")
+					print(f"Stopped due to large condition number of M: cond(M) = {cond_M:10.3e}")
 				break
 			
 			M = lambda x: cholesky_inv(x, L, d, p)
@@ -541,6 +525,9 @@ class ProjectedH2MOR(H2MOR,PoleResidueSystem):
 				
 			elif self.subspace_mode == 'dist':	
 				mu_star, max_angle = self._choose_mu_star_dist(mu, lam_can, L, d, p)
+			
+			elif self.subspace_mode == 'alt':	
+				mu_star, max_angle = self._choose_mu_star_alt(mu, lam_can, L, d, p, it)
 			
 			
 

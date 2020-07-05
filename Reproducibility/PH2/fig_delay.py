@@ -2,8 +2,8 @@
 """
 import numpy as np
 import scipy.linalg 
-import mor, mor.demos
-from mor.pgf import PGF
+import sysmor, sysmor.demos
+from sysmor.pgf import PGF
 import argparse
 from scipy.optimize import minimize
 
@@ -13,7 +13,7 @@ n_quad = int(1e4) 	# Number of samples for quadrature norms
 
 def run_mor(MOR, rs, prefix, hist = False, **kwargs):
 
-	H = mor.demos.build_bg_delay()
+	H = sysmor.demos.build_bg_delay()
 	
 	H_norm = H.quad_norm(n = n_quad, L = 10)
 
@@ -54,7 +54,7 @@ def run_mor(MOR, rs, prefix, hist = False, **kwargs):
 		
 	
 		Hr = MOR(r, **kwargs)
-		if isinstance(Hr, mor.ProjectedH2MOR) and r == 2:
+		if isinstance(Hr, sysmor.ProjectedH2MOR) and r == 2:
 			# This is a hack to ensure overdetermined
 			r = 4
 		mu0 = np.array([ np.abs(poles[0:r//2].real) + 1j*poles[0:r//2].imag])
@@ -135,12 +135,16 @@ if __name__ == '__main__':
 	rs = np.array(args.rs)
 	alg = args.alg.lower()
 	hist = args.hist
-	ftol = 1e-9
+	ftol = 1e-8
 
 	if alg == 'ph2':
-		run_mor(mor.ProjectedH2MOR, rs, 'data/fig_delay_ph2', verbose = 10, ftol = ftol, hist = hist)
+		run_mor(sysmor.ProjectedH2MOR, rs, 'data/fig_delay_ph2', verbose = 1, ftol = ftol, hist = hist)
+	elif alg == 'ph2_dist':
+		run_mor(sysmor.ProjectedH2MOR, rs, 'data/fig_delay_ph2_dist', verbose = 1, ftol = ftol, hist = hist, subspace_mode = 'dist')
+	elif alg == 'ph2_alt':
+		run_mor(sysmor.ProjectedH2MOR, rs, 'data/fig_delay_ph2_alt', verbose = 1, ftol = ftol, hist = hist, subspace_mode = 'alt')
 	elif alg == 'tfirka':	
-		run_mor(mor.TFIRKA, rs, 'data/fig_delay_tfirka', verbose = 10, ftol = ftol, flipping = True, hist = hist)
+		run_mor(sysmor.TFIRKA, rs, 'data/fig_delay_tfirka', verbose = 10, ftol = ftol, flipping = True, hist = hist)
 	elif alg == 'quadvf':
 		if not hist:
 			run_mor(mor.QuadVF, rs, 'data/fig_delay_quadvf', verbose = 10, N = 200, ftol = ftol, L = 10, hist = hist)

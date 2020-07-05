@@ -22,7 +22,7 @@ def run_mor(MOR, rs, prefix, hist = False, **kwargs):
 	
 	# Bode plots
 	print("starting bode")
-	z = 1j*np.logspace(-1, 3, 600)
+	z = 1j*np.logspace(-1, 3, 10)
 	Hz = np.zeros((len(z),1,1), dtype = np.complex)
 	for j in tqdm.trange(len(z)):
 		Hz[j] = H.transfer(z[j]).flatten()
@@ -161,6 +161,8 @@ if __name__ == '__main__':
 		run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2', hist = hist, verbose = 1, print_norm = True, ftol = ftol)
 	elif alg == 'ph2_dist':
 		run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2_dist', hist = hist, verbose = 1, print_norm = True, ftol = ftol, subspace_mode = 'dist')
+	elif alg == 'ph2_alt':
+		run_mor(ProjectedH2MOR, rs, 'data/fig_iss_ph2_alt', hist = hist, verbose = 1, print_norm = True, ftol = ftol, subspace_mode = 'alt')
 	elif alg == 'irka':
 		run_mor(IRKA, rs, 'data/fig_iss_irka', hist = hist, verbose = True, print_norm = True, ftol = ftol)
 	elif alg == 'tfirka':
