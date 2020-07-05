@@ -22,7 +22,7 @@ def run_mor(MOR, rs, prefix, hist = False, **kwargs):
 	
 	# Bode plots
 	print("starting bode")
-	z = 1j*np.logspace(-1, 3, 10)
+	z = 1j*np.logspace(-1, 3, 600)
 	Hz = np.zeros((len(z),1,1), dtype = np.complex)
 	for j in tqdm.trange(len(z)):
 		Hz[j] = H.transfer(z[j]).flatten()
