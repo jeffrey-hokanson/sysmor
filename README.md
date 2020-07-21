@@ -1,6 +1,5 @@
 SYSMOR: System-Theoretic Model Order Reduction
 ==============================================
-[![PyPI version](https://badge.fury.io/py/psdr.svg)](https://badge.fury.io/py/psdr)
 [![Documentation Status](https://readthedocs.org/projects/mor/badge/?version=latest)](https://mor.readthedocs.io/en/latest/?badge=latest)
 [![Build Status](https://travis-ci.org/jeffrey-hokanson/sysmor.svg?branch=master)](https://travis-ci.org/jeffrey-hokanson/SYSMOR)
 [![Coverage Status](https://coveralls.io/repos/github/jeffrey-hokanson/sysmor/badge.svg?branch=master)](https://coveralls.io/github/jeffrey-hokanson/sysmor?branch=master)
