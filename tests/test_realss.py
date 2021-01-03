@@ -162,8 +162,43 @@ def test_encoding(p = 3, m = 2, M = 100, r_c = 2, r_r = 3):
 		Jest = (residual(x + h*ek) - residual(x - h*ek))/(2*h)
 		assert np.all(np.isclose(Jest, J[:,k]))
 
+
+
+def test_pole_residue_to_real_statespace(p = 4, m = 3):
+	np.random.seed(0)
+	r_c = 4
+	r_r = 5
+
+	lam = np.zeros((r_c*2+r_r), dtype = np.complex)
+	R = np.zeros((r_c*2+r_r, p,m), dtype = np.complex)
+	for k in range(r_c):
+		lam0 = -np.random.rand() + 1j*np.random.rand()
+		lam[2*k] = lam0
+		lam[2*k+1] = lam0.conjugate()
+		c = np.random.randn(p,1) + 1j*np.random.randn(p,1)
+		b = np.random.randn(1,m) + 1j*np.random.randn(1,m)
+		R[2*k] = c @ b
+		R[2*k+1] = (c @ b).conj()
+		
+	for k in range(r_r):
+		lam[2*r_c + k] = - np.random.rand()
+		R[2*r_c + k] = np.random.randn(p, 1) @ np.random.randn(1,m)
+
+	args = pole_residue_to_real_statespace(lam, R, rank = 1)
+
+	z = 0.1+ 1j*np.linspace(-10,10,3)
+
+	Hz1 = eval_pole_residue(z, lam, R)
+	Hz2 = eval_realss(z, *args)
+
+	print("ratio")
+	print(Hz1/Hz2)	
+	
+	assert np.all(np.isclose(Hz1, Hz2))
+
 if __name__ == '__main__':
 	#test_residual()
 	#test_jacobian()
-	test_fit_real_mimo_statespace_system()
+	#test_fit_real_mimo_statespace_system()
 	#test_encoding()
+	test_pole_residue_to_real_statespace()
