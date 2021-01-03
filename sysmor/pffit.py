@@ -129,8 +129,9 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		Wf = self.W(self.f)
 		
 		# Compute the short-form QR factorization of WV to solve system
-		WV_Q, WV_R = np.linalg.qr(WV, mode='reduced')
-		b = np.dot(WV_Q.conjugate().T, Wf)
+		#WV_Q, WV_R = np.linalg.qr(WV, mode='reduced')
+		WV_Q, WV_R, col_perm = scipy.linalg.qr(WV, mode = 'economic', pivoting = True)
+		b = WV_Q.conj().T @ Wf
 		try:
 			a = solve_triangular(WV_R, b)
 		except Exception as e:
@@ -138,7 +139,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 			raise e
 
 		# residual
-		PWf = np.dot(WV_Q, b)
+		PWf = WV_Q @  b
 		r = Wf - PWf
 		
 		if jacobian is False:
@@ -148,24 +149,26 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		DV = self.vandmat_der(lam)
 		WDV = self.W(DV)
 
+		col_perm_inv = np.argsort(col_perm)
+		
 		# Compute the Jacobian
 		# Storage for Jacobian in real/imaginary format
 		JRI = np.empty((r.shape[0] * 2 , (lam.shape[0])* 2), dtype=np.float)
 
 		# First term in Jacobian
-		WDVa = WDV * a[:self.n] # This is equivalent to np.dot(DV, np.diag(a))
-		K = WDVa - np.dot(WV_Q, np.dot(WV_Q.conjugate().T, WDVa))
+		WDVa = WDV * (a[col_perm_inv][:self.n]) # This is equivalent to np.dot(DV, np.diag(a))
+		K = WDVa - WV_Q @ (WV_Q.conj().T @ WDVa)
 		JRI[0::2, 0::2] = K.real
 		JRI[1::2, 1::2] = K.real
 		JRI[0::2, 1::2] = -K.imag
 		JRI[1::2, 0::2] = K.imag
 
 		# Second term in the Jacobian
-		L = np.zeros((self.m + 1,), dtype = np.complex)
-		L[:self.n] = np.dot(WDV.conjugate().T, r)
-		L = np.dot(WV_Q, solve_triangular(WV_R, np.diag(L), trans = 'C'))
-		L = L[:,:self.n]
-
+		X = np.zeros((self.m + 1,), dtype = np.complex)
+		X[:self.n] = WDV.conj().T @ r
+		X = X[col_perm]
+		L = WV_Q @ solve_triangular(WV_R, np.diag(X)[:,col_perm_inv[:self.n]], trans = 'C')
+		
 		JRI[0::2, 0::2] += L.real
 		JRI[1::2, 1::2] += -L.real
 		JRI[0::2, 1::2] += L.imag
@@ -177,7 +180,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		return r.view(float), -JRI
 
 
-	def residual_jacobian_real(self, b, jacobian = True, return_real = True):
+	def residual_jacobian_real(self, b, jacobian = True, return_real = True, row_sort = True):
 		r""" Construct the residual and Jacobian for the pole-residue parameterization with real pairs
 		"""
 	
@@ -195,6 +198,17 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 
 		WOmega = self.W(Omega)
 		Wf = self.W(self.f)
+	
+		# For why row sorting is important, see Higham "Accuracy and Stability of Numerical Algorithms",
+		# section 19.4. Gist is that we want both row sorting (with decreasing sup row norm) 	
+		# and column pivoting to remain accurate
+		if row_sort:
+			row_norm = np.max(np.abs(WOmega), axis = 1)
+			row_perm = np.argsort(-row_norm)
+			row_perm_inv = np.argsort(row_perm)
+
+			WOmega = WOmega[row_perm,:]
+			Wf = Wf[row_perm]
 
 		# Now make into real/imaginary form
 		WOmegaRI = np.zeros((WOmega.shape[0]*2, WOmega.shape[1]), dtype = np.float)
@@ -203,24 +217,30 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 		WfRI = Wf.view(float)
 
 		# Compute the short-form QR factorization of WV to solve system
-		WOmegaRI_Q, WOmegaRI_R = np.linalg.qr(WOmegaRI, mode='reduced')
+		WOmegaRI_Q, WOmegaRI_R, col_perm = scipy.linalg.qr(WOmegaRI, mode = 'economic', pivoting = True)
+		#WOmegaRI_Q, WOmegaRI_R = scipy.linalg.qr(WOmegaRI, mode = 'economic', pivoting = False)
+		#col_perm = np.arange(WOmegaRI_R.shape[1])
+		col_perm_inv = np.argsort(col_perm)
 		c = np.dot(WOmegaRI_Q.T, WfRI)
 		
 		# First we compute the coefficients for the numerator polynomial
 		a = solve_triangular(WOmegaRI_R, c) 
 		
 		# Compute the residual		
-		rRI = WfRI - np.dot(WOmegaRI, a) 
-		
+		rRI = WfRI - WOmegaRI_Q @ c 
+
 		# Stop if we don't need to compute the jacobian
 		if jacobian is False:
-			if return_real: return (rRI, a)
-			else: return (rRI.view(complex), a)
-	
+			if row_sort:
+				rRI[0::2] = rRI[2*row_perm_inv]
+				rRI[1::2] = rRI[1+2*row_perm_inv]
+			if return_real: return (rRI, a[col_perm_inv])
+			else: return (rRI.view(complex), a[col_perm_inv])
 
 		# Now construct the Jacobian
 		JRI = np.empty( (self.z.shape[0] * 2, self.n), dtype = np.float64)
-
+	
+	
 		for k in range(self.n):
 			dOmega = np.zeros(Omega.shape, dtype = np.complex)
 			if (self.n % 2 == 0) or ( k < self.n-1):
@@ -229,8 +249,11 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 				dOmega[:,I] = -(Psi.T * ( Psi[:,j]*(zt2 + np.dot(Psi, b[I]))**(-2))).T
 			else:
 				dOmega[:,k] = -1./(zt + b[-1])**2
-			
-			dWOmega = self.W(dOmega)
+		
+			# Permute so we match correct ordering 
+			dWOmega = self.W(dOmega[:,col_perm])
+			if row_sort:
+				dWOmega = dWOmega[row_perm,:]
 			
 			# Now form the real imaginary version
 			dWOmegaRI = np.zeros((dWOmega.shape[0]*2, dWOmega.shape[1]), dtype = np.float)
@@ -238,18 +261,24 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 			dWOmegaRI[1::2,:] = dWOmega.imag
 
 			# Compute the first term in the VARPRO Jacobian
-			dWOmegaRI_a = np.dot(dWOmegaRI, a)
-			L = -(dWOmegaRI_a - np.dot(WOmegaRI_Q, np.dot(WOmegaRI_Q.conj().T, dWOmegaRI_a)))
+			dWOmegaRI_a = dWOmegaRI @ a
+			L = -(dWOmegaRI_a - WOmegaRI_Q @ (WOmegaRI_Q.conj().T @ dWOmegaRI_a))
 			
 			JRI[:, k] = L
 
 			# Compute the second term in the VARPRO Jacobian
-			dWOmegaRI_r = np.dot(dWOmegaRI.T, rRI)
-			K = -np.dot(WOmegaRI_Q, solve_triangular(WOmegaRI_R, dWOmegaRI_r, trans = 'T'))
+			dWOmegaRI_r = dWOmegaRI.T @ rRI
+			K = -WOmegaRI_Q @ solve_triangular(WOmegaRI_R, dWOmegaRI_r, trans = 'T')
 
 			JRI[:,k] += K
-		
-		return (rRI, JRI, a)	
+
+		if row_sort:	
+			rRI[0::2] = rRI[2*row_perm_inv]
+			rRI[1::2] = rRI[1+2*row_perm_inv]
+			JRI[0::2] = JRI[2*row_perm_inv]
+			JRI[1::2] = JRI[1+2*row_perm_inv]
+
+		return (rRI, JRI, a[col_perm_inv])	
 
 
 	def residual_real(self, b, return_real = False):
@@ -419,7 +448,7 @@ class PartialFractionRationalFit(OptimizationRationalFit):
 					pass
 		
 		if self.n % 2 == 1:
-			rho[-1] = a[0]
+			rho[self.n-1] = scale * a[self.n-1]
 		
 		self.b = b
 		self.rho = rho

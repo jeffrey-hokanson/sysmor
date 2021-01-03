@@ -171,6 +171,9 @@ class VectorValuedAAARationalFit(RationalFit):
 		Degree of rational approximation
 	tol: float, positive
 		Error (in max norm) of the resulting approximation
+	verbose: bool
+		If True, display history
+	
 	
 	References
 	----------
