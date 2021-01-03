@@ -4,6 +4,7 @@ from sysmor import PoleResidueSystem, StateSpaceSystem
 from sysmor.demos import build_iss
 
 def test_pole_residue():
+	np.random.seed(0)
 	#H = build_iss()
 	#H = H[0,0]
 	A = np.diag(np.linspace(-10,-1,5)) + 1j*np.random.randn(5)
@@ -14,7 +15,6 @@ def test_pole_residue():
 
 	lam, rho = H.pole_residue()
 	H2 = PoleResidueSystem(lam, rho)
-
 	err = (H - H2).norm()/H.norm()
 	print("error", err)
 	assert err < 1e-7
