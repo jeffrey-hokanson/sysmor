@@ -2,7 +2,8 @@
 """
 import numpy as np
 from itertools import product
-
+from .system import StateSpaceSystem
+import scipy.optimize
 
 def _residual(z, Y, alpha, beta, B, C, gamma, b, c):
 	r""" Residual for a real state-space system
@@ -108,3 +109,91 @@ def _jacobian(z, Y, alpha, beta, B, C, gamma, b, c):
 			Jc[:,j,:,j,k] = -X[:,:]
 	
 	return Jalpha, Jbeta, JB, JC, Jgamma, Jb, Jc
+
+
+def _make_encoder(alpha, beta, B, C, gamma, b, c):
+	def encoder(alpha, beta, B, C, gamma, b, c):
+		return np.hstack([
+			alpha.flatten(), 
+			beta.flatten(), 
+			B.flatten(),
+			C.flatten(),
+			gamma.flatten(),
+			b.flatten(),
+			c.flatten()])
+
+	return encoder
+
+def _make_decoder(alpha, beta, B, C, gamma, b, c):
+	def decoder(x):
+		it = 0
+		output = []
+		for mat in [alpha, beta, B, C, gamma, b, c]:
+			step = int(np.prod(mat.shape))
+			output.append(x[it:it+step].reshape(mat.shape))
+			it += step
+
+		return output	
+	return decoder
+
+def _make_residual(z, Y, alpha, beta, B, C, gamma, b, c):
+	decoder = _make_decoder(alpha, beta, B, C, gamma, b, c)
+	def residual(x):
+		res = _residual(z, Y, *decoder(x))
+		return np.hstack([res.real.flatten(), res.imag.flatten()])
+
+	return residual
+
+def _make_jacobian(z, Y, alpha, beta, B, C, gamma, b, c):
+	decoder = _make_decoder(alpha, beta, B, C, gamma, b, c)
+	M, m, p = Y.shape
+	def jacobian(x):
+		Jacs= _jacobian(z, Y, *decoder(x))
+		J = np.hstack([	J.reshape(M*p*m,-1) for J in Jacs])
+		return np.vstack([J.real, J.imag])
+
+	return jacobian
+
+# TODO: For SIMO/MISO we can use VarPro + rational approximation parameterization
+
+def fit_real_mimo_statespace_system(z, Y, alpha, beta, B, C, gamma, b, c, weight = None, stable =True):
+	r"""
+	"""
+	encode = _make_encoder(alpha, beta, B, C, gamma, b, c)
+	decode = _make_decoder(alpha, beta, B, C, gamma, b, c)
+	residual = _make_residual(z, Y, alpha, beta, B, C, gamma, b, c)
+	jacobian = _make_jacobian(z, Y, alpha, beta, B, C, gamma, b, c)
+
+	x0 = encode(alpha, beta, B, C, gamma, b, c)
+
+	if stable:
+		bounds = (
+			-np.inf*np.ones_like(x0), 
+			encode(
+				np.zeros_like(alpha),
+				np.zeros_like(beta),
+				np.inf*np.ones_like(B),
+				np.inf*np.ones_like(C),
+				np.zeros_like(gamma),
+				np.inf*np.ones_like(b),
+				np.inf*np.ones_like(c)
+				)
+			)
+	else:
+		bounds = (-np.inf, np.inf)
+	
+	res = scipy.optimize.least_squares(
+		residual, 
+		x0,
+		jac = jacobian,
+		bounds = bounds,
+		verbose = 2,
+		)
+
+	return 	
+	
+
+class RealMIMOStateSpaceSystem(StateSpaceSystem):
+	r"""
+	"""
+	pass

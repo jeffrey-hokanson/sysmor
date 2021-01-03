@@ -1,7 +1,8 @@
 from itertools import product
 import numpy as np
 import scipy.linalg
-from sysmor.realss import _residual, _jacobian
+from sysmor.realss import *
+from sysmor.realss import _residual, _jacobian, _make_encoder, _make_decoder, _make_residual, _make_jacobian
 
 
 def test_residual(p = 3, m = 2, M = 1000, r_c = 2, r_r = 3):
@@ -107,6 +108,62 @@ def test_jacobian(p = 3, m = 2, M = 100, r_c = 2, r_r = 3):
 		Jest /= 2*h
 		assert np.all(np.isclose(Jc[...,j,k], Jest))
 
+
+def test_fit_real_mimo_statespace_system(p = 3, m = 2, M = 100, r_c = 2, r_r = 3):
+	np.random.seed(0)
+	z = 0.1+1j*np.linspace(-1,1, M)
+	Y = np.random.randn(M, p, m)
+	# complex conjugate poles
+	alpha = -np.random.rand(r_c)
+	beta = -np.random.rand(r_c)
+	B = np.random.randn(r_c*2, m)
+	C = np.random.randn(p, r_c*2)
+	# real poles
+	gamma = -np.random.rand(r_r)
+	b = np.random.randn(r_r, m)
+	c = np.random.randn(p, r_r)
+
+	fit_real_mimo_statespace_system(z,Y, alpha, beta, B, C, gamma, b, c)
+
+
+def test_encoding(p = 3, m = 2, M = 100, r_c = 2, r_r = 3):
+	np.random.seed(0)
+	z = 0.1+1j*np.linspace(-1,1, M)
+	Y = np.random.randn(M, p, m)
+	# complex conjugate poles
+	alpha = -np.random.rand(r_c)
+	beta = -np.random.rand(r_c)
+	B = np.random.randn(r_c*2, m)
+	C = np.random.randn(p, r_c*2)
+	# real poles
+	gamma = -np.random.rand(r_r)
+	b = np.random.randn(r_r, m)
+	c = np.random.randn(p, r_r)
+
+	
+	encoder = _make_encoder(alpha, beta, B, C, gamma, b, c)
+	decoder = _make_decoder(alpha, beta, B, C, gamma, b, c)
+
+	# Check that it reproduces itself
+	x = encoder(alpha, beta, B, C, gamma, b, c)
+	assert np.all(x == encoder(*decoder(x)))
+
+
+	# Check 
+	residual = _make_residual(z, Y, alpha, beta, B, C, gamma, b, c)
+	jacobian = _make_jacobian(z, Y, alpha, beta, B, C, gamma, b, c)
+
+	r = residual(x)
+	J = jacobian(x)
+
+	h = 1e-5
+	for k in range(len(x)):
+		ek = np.eye(len(x))[k]
+		Jest = (residual(x + h*ek) - residual(x - h*ek))/(2*h)
+		assert np.all(np.isclose(Jest, J[:,k]))
+
 if __name__ == '__main__':
 	#test_residual()
-	test_jacobian()
+	#test_jacobian()
+	test_fit_real_mimo_statespace_system()
+	#test_encoding()
