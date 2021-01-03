@@ -5,6 +5,7 @@ from sysmor.varpro import *
 import mpmath as mp
 
 
+# TODO: Clean up this test code
 def test_varpro_colwise():
 	np.random.seed(0)
 	m = 100
@@ -53,7 +54,7 @@ def test_varpro_colwise():
 	print('K err', K_err)
 	#assert np.linalg.norm(K - K_true) < 1e-6
 
-	L_true = Q @ sl.solve(R.conj().T, np.diag(DA.conj().T @ r_true))
+	L_true = Q @ sl.solve(R.conj().T, np.diag(DA.conj().T @ r))
 	L_err = np.linalg.norm(L - L_true, 'fro')
 	print('L err', K_err)
 	#assert np.linalg.norm(K - K_true) < 1e-6
