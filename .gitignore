@@ -1,4 +1,7 @@
 docs/build
+build
+dist
+sysmor.egg-info
 *.pyc
 *.swp
 .pytest_cache
