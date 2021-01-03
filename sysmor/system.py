@@ -1,4 +1,4 @@
-from __future__ import division
+import abc
 import numpy as np
 from .lagrange import LagrangePolynomial
 from .pgf import PGF
@@ -10,7 +10,6 @@ try:
 	from scipy.linalg import solve_lyapunov
 except:
 	from scipy.linalg import solve_continuous_lyapunov as solve_lyapunov
-
 import scipy.linalg
 import scipy.sparse.linalg
 
@@ -30,7 +29,7 @@ __all__ = ['LTISystem', 'ComboSystem', 'StateSpaceSystem', 'SparseStateSpaceSyst
 		'TransferSystem', 'PoleResidueSystem', 'ZeroSystem']
 
 
-class LTISystem(object):
+class LTISystem(abc.ABC):
 	""" Abstract base class for linear-time invariant systems
 	"""
 	def transfer(self, z, der = False):
