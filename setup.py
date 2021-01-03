@@ -19,6 +19,8 @@ setup(name='sysmor',
 		'scipy', 
 		'matplotlib',
 		'mpmath',
+		'polyrat',
+		'iterprinter',
 		],
 	python_requires='>=3.6',
 	)
