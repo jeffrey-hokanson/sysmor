@@ -149,18 +149,20 @@ def test_encoding(p = 3, m = 2, M = 100, r_c = 2, r_r = 3):
 	assert np.all(x == encoder(*decoder(x)))
 
 
-	# Check 
-	residual = _make_residual(z, Y, alpha, beta, B, C, gamma, b, c)
-	jacobian = _make_jacobian(z, Y, alpha, beta, B, C, gamma, b, c)
+	W = np.random.randn(M,M)
+	for weight in [None, W]:
+		# Check residual 
+		residual = _make_residual(z, Y, alpha, beta, B, C, gamma, b, c, weight)
+		jacobian = _make_jacobian(z, Y, alpha, beta, B, C, gamma, b, c, weight)
 
-	r = residual(x)
-	J = jacobian(x)
+		r = residual(x)
+		J = jacobian(x)
 
-	h = 1e-5
-	for k in range(len(x)):
-		ek = np.eye(len(x))[k]
-		Jest = (residual(x + h*ek) - residual(x - h*ek))/(2*h)
-		assert np.all(np.isclose(Jest, J[:,k]))
+		h = 1e-5
+		for k in range(len(x)):
+			ek = np.eye(len(x))[k]
+			Jest = (residual(x + h*ek) - residual(x - h*ek))/(2*h)
+			assert np.all(np.isclose(Jest, J[:,k]))
 
 
 
@@ -195,6 +197,10 @@ def test_pole_residue_to_real_statespace(p = 4, m = 3):
 	print(Hz1/Hz2)	
 	
 	assert np.all(np.isclose(Hz1, Hz2))
+
+
+
+
 
 if __name__ == '__main__':
 	#test_residual()

@@ -84,7 +84,6 @@ def pole_residue_to_real_statespace(lam, R, rank = None):
 			U, s, VH = scipy.linalg.svd(R[k], full_matrices = False)
 			for j in range(min(np.sum(~np.isclose(s,0)), rank)):
 				gamma.append(lam[k])
-				print(VH[j,:])
 				b.append(VH[j,:].real*np.sqrt(s[j]))
 				c.append(U[:,j].real*np.sqrt(s[j]))
 		else:
@@ -264,19 +263,28 @@ def _make_decoder(alpha, beta, B, C, gamma, b, c):
 		return output	
 	return decoder
 
-def _make_residual(z, Y, alpha, beta, B, C, gamma, b, c):
+def _make_residual(z, Y, alpha, beta, B, C, gamma, b, c, weight):
 	decoder = _make_decoder(alpha, beta, B, C, gamma, b, c)
+	M, p, m = Y.shape
 	def residual(x):
 		res = _residual(z, Y, *decoder(x))
+		if weight is not None:
+			for s, t in product(range(p), range(m)):
+				res[slice(M),s,t] = weight @ res[:,s,t] 
 		return np.hstack([res.real.flatten(), res.imag.flatten()])
 
 	return residual
 
-def _make_jacobian(z, Y, alpha, beta, B, C, gamma, b, c):
+def _make_jacobian(z, Y, alpha, beta, B, C, gamma, b, c, weight):
 	decoder = _make_decoder(alpha, beta, B, C, gamma, b, c)
-	M, m, p = Y.shape
+	M, p, m = Y.shape
 	def jacobian(x):
 		Jacs= _jacobian(z, Y, *decoder(x))
+		if weight is not None:
+			for k, J in enumerate(Jacs):
+				for idx in np.ndindex(J.shape[3:]):
+					for s, t in product(range(p), range(m)):
+						Jacs[k][(slice(M),s,t,*idx)] = weight @ J[(slice(M),s,t,*idx)] 
 		J = np.hstack([	J.reshape(M*p*m,-1) for J in Jacs])
 		return np.vstack([J.real, J.imag])
 
@@ -289,8 +297,8 @@ def fit_real_mimo_statespace_system(z, Y, alpha, beta, B, C, gamma, b, c, weight
 	"""
 	encode = _make_encoder(alpha, beta, B, C, gamma, b, c)
 	decode = _make_decoder(alpha, beta, B, C, gamma, b, c)
-	residual = _make_residual(z, Y, alpha, beta, B, C, gamma, b, c)
-	jacobian = _make_jacobian(z, Y, alpha, beta, B, C, gamma, b, c)
+	residual = _make_residual(z, Y, alpha, beta, B, C, gamma, b, c, weight)
+	jacobian = _make_jacobian(z, Y, alpha, beta, B, C, gamma, b, c, weight)
 
 	x0 = encode(alpha, beta, B, C, gamma, b, c)
 
