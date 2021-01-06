@@ -54,10 +54,12 @@ def pole_residue_to_real_statespace(lam, R, rank = None):
 
 	# ensure poles come in exact conjugate pairs
 	I = hungarian_sort(lam, lam.conj())
-	assert np.all(np.isclose(lam, lam[I].conj())), "Poles are not in conjugate pairs"
+#	print("poles\n", lam)
+#	print("mismatch\n", lam - lam[I].conj())
+#	assert np.all(np.isclose(lam, lam[I].conj(),rtol = 1e-1)), "Poles are not in conjugate pairs"
 	lam = (lam + lam[I].conj())/2
 	# Same for the residues
-	assert np.all(np.isclose(R, R[I].conj())), "Residues are not in conjugate pairs"
+#	assert np.all(np.isclose(R, R[I].conj(), rtol = 1e-1)), "Residues are not in conjugate pairs"
 	R = (R + R[I].conj())/2
 
 
@@ -83,7 +85,7 @@ def pole_residue_to_real_statespace(lam, R, rank = None):
 			r_r += 1
 			U, s, VH = scipy.linalg.svd(R[k], full_matrices = False)
 			for j in range(min(np.sum(~np.isclose(s,0)), rank)):
-				gamma.append(lam[k])
+				gamma.append(lam[k].real)
 				b.append(VH[j,:].real*np.sqrt(s[j]))
 				c.append(U[:,j].real*np.sqrt(s[j]))
 		else:
@@ -300,11 +302,10 @@ def fit_real_mimo_statespace_system(z, Y, alpha, beta, B, C, gamma, b, c, weight
 	residual = _make_residual(z, Y, alpha, beta, B, C, gamma, b, c, weight)
 	jacobian = _make_jacobian(z, Y, alpha, beta, B, C, gamma, b, c, weight)
 
-	x0 = encode(alpha, beta, B, C, gamma, b, c)
 
 	if stable:
 		bounds = (
-			-np.inf*np.ones_like(x0), 
+			-np.inf, 
 			encode(
 				np.zeros_like(alpha),
 				# Although technically we can impose beta[k]<= 0 wlog, we don't for ease of optimization
@@ -316,21 +317,79 @@ def fit_real_mimo_statespace_system(z, Y, alpha, beta, B, C, gamma, b, c, weight
 				np.inf*np.ones_like(c)
 				)
 			)
+		# Flip to make stable
+		alpha = -1*np.abs(alpha)
+		gamma = -1*np.abs(gamma)
 	else:
 		bounds = (-np.inf, np.inf)
+	
+	x0 = encode(alpha, beta, B, C, gamma, b, c)
 	
 	res = scipy.optimize.least_squares(
 		residual, 
 		x0,
 		jac = jacobian,
 		bounds = bounds,
-		verbose = 2,
+		verbose = 0,
 		)
 
-	return 	
+	return BlockStateSpaceSystem(*decode(res.x))	
 	
 
-class RealMIMOStateSpaceSystem(StateSpaceSystem):
+class BlockStateSpaceSystem(StateSpaceSystem):
 	r"""
 	"""
-	pass
+	def __init__(self, alpha, beta, B, C, gamma, b, c):
+
+		self._alpha = np.copy(alpha)
+		self._beta = np.copy(beta)
+		self._B = np.copy(B)
+		self._C = np.copy(C)
+		self._gamma = np.copy(gamma)
+		self._b = np.copy(b)
+		self._c = np.copy(c)
+
+	def transfer(self, z, der = False):
+		if der:
+			raise NotImplementedError
+
+		return eval_realss(z, self._alpha, self._beta, self._B, self._C, self._gamma, self._b, self._c)	
+
+	def poles(self):
+		return np.hstack([self._alpha + 1j*self._beta, self._alpha - 1j*self._beta, self._gamma	]).flatten()
+
+	@property
+	def A(self):
+		n = len(self._alpha)*2+len(self._gamma)
+		A = np.zeros((n,n))
+		for k, (a, b) in enumerate(zip(self._alpha, self._beta)):
+			A[2*k,2*k] = a
+			A[2*k+1,2*k+1] = a
+			A[2*k, 2*k+1] = b
+			A[2*k+1, 2*k] = -b
+		
+		st = 2*len(self._alpha)
+		for k, g in enumerate(self._gamma):
+			A[st+k, st+k] = g
+
+		return A
+
+	@property
+	def B(self):
+		n = len(self._alpha)*2+len(self._gamma)
+		m = self._B.shape[1]
+
+		B = np.zeros((n,m))
+		B[:2*len(self._alpha),:] = self._B
+		B[2*len(self._alpha):,:] = self._b
+		return B
+	
+	@property
+	def C(self):
+		n = len(self._alpha)*2+len(self._gamma)
+		p = self._C.shape[0]
+
+		C = np.zeros((p,n))
+		C[:,:2*len(self._alpha)] = self._C
+		C[:,2*len(self._alpha):] = self._c
+		return C

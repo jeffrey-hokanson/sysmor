@@ -2,7 +2,7 @@ import numpy as np
 import scipy.linalg
 import sysmor
 from sysmor.demos import build_iss
-from sysmor.mimoph2 import inner_loop, Weight
+from sysmor.mimoph2 import *
 from sysmor.cauchy import cauchy_ldl
 
 
@@ -34,8 +34,16 @@ def test_weight():
 	U = Linv @ Csqrt
 	y = np.sum(np.abs(U)**2, axis = 0)
 	assert np.all(np.isclose(y, 1))
-	
+
+
+def test_outer_loop():	
+	H = build_iss()
+	r = 10
+	mu0 = 0.01 + 1j*np.linspace(-100,100, 2*r+30)
+
+	outer_loop(H, r, mu0)	
 
 if __name__ == '__main__':
-	test_inner_loop()
+	#test_inner_loop()
 	#test_weight()	
+	test_outer_loop()
