@@ -39,7 +39,7 @@ def test_weight():
 def test_outer_loop():	
 	H = build_iss()
 	r = 10
-	mu0 = 0.01 + 1j*np.linspace(-100,100, 2*r+30)
+	mu0 = 1e-6 + 1j*np.linspace(-100,100, 2*r+2)
 
 	outer_loop(H, r, mu0)	
 

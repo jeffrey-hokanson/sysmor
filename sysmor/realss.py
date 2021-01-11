@@ -294,7 +294,7 @@ def _make_jacobian(z, Y, alpha, beta, B, C, gamma, b, c, weight):
 
 # TODO: For SIMO/MISO we can use VarPro + rational approximation parameterization
 
-def fit_real_mimo_statespace_system(z, Y, alpha, beta, B, C, gamma, b, c, weight = None, stable =True):
+def fit_real_mimo_statespace_system(z, Y, alpha, beta, B, C, gamma, b, c, weight = None, stable =True, verbose = False):
 	r"""
 	"""
 	encode = _make_encoder(alpha, beta, B, C, gamma, b, c)
@@ -324,13 +324,18 @@ def fit_real_mimo_statespace_system(z, Y, alpha, beta, B, C, gamma, b, c, weight
 		bounds = (-np.inf, np.inf)
 	
 	x0 = encode(alpha, beta, B, C, gamma, b, c)
+
+	if verbose:
+		verbose = 2
+	else:
+		verbose = 0
 	
 	res = scipy.optimize.least_squares(
 		residual, 
 		x0,
 		jac = jacobian,
 		bounds = bounds,
-		verbose = 0,
+		verbose = verbose,
 		)
 
 	return BlockStateSpaceSystem(*decode(res.x))	
