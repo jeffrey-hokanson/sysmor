@@ -54,12 +54,12 @@ def pole_residue_to_real_statespace(lam, R, rank = None):
 
 	# ensure poles come in exact conjugate pairs
 	I = hungarian_sort(lam, lam.conj())
-#	print("poles\n", lam)
-#	print("mismatch\n", lam - lam[I].conj())
-#	assert np.all(np.isclose(lam, lam[I].conj(),rtol = 1e-1)), "Poles are not in conjugate pairs"
+	#print("poles\n", lam)
+	#print("mismatch\n", lam - lam[I].conj())
+	#assert np.all(np.isclose(lam, lam[I].conj(),atol = 1e-1, rtol = 1e-1)), "Poles are not in conjugate pairs"
 	lam = (lam + lam[I].conj())/2
 	# Same for the residues
-#	assert np.all(np.isclose(R, R[I].conj(), rtol = 1e-1)), "Residues are not in conjugate pairs"
+	#assert np.all(np.isclose(R, R[I].conj(), rtol = 1e-1)), "Residues are not in conjugate pairs"
 	R = (R + R[I].conj())/2
 
 
