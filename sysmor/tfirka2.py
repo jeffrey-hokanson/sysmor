@@ -2,7 +2,7 @@ import numpy as np
 import scipy
 from itertools import product
 
-from .system import DescriptorSystem
+from .system import DescriptorSystem, DiagonalStateSpaceSystem
 
 
 def tangential_hermite_interpolant(z, Hb, cH, cHpb, b, c):
@@ -38,45 +38,36 @@ def tangential_hermite_interpolant(z, Hb, cH, cHpb, b, c):
 	return DescriptorSystem(A, B, C, E)	
 
 
-def init_largest_real(H, r):
-	ew, evL, evR = H.eig(which = 'LR', k = r, left = True, right = True)
-	print("B", H.B.shape,"evR", evL.shape)
-	B = evL.conj().T @ H.B
-	print("C", H.C.shape,"evR", evR.shape)
+
+def modal_truncation(H, r, which = 'LR'):
+	ew, evR = H.eig(which = which, k = r, right = True)
 	C = H.C @ evR
-	print(B)
-	print(C)
+	B = scipy.linalg.lstsq(evR, H.B)[0]
+	return DiagonalStateSpaceSystem(ew, B, C)
+
+def tfirka(H, rom_dim, Hr0 = None, maxiter = 10):
+	if Hr0 is None:
+		Hr = modal_truncation(H, rom_dim)
 	
-	#print(evL.shape)
-	#print(evR.shape)
-	#print("B", H.B.shape)
-	#c = (H.C @ evR).T
-	return ew, B, C
 
-
-def tfirka(H, rom_dim, z0 = None, b0 = None, c0 = None, maxiter = 10):
-	ew, b, c = init_largest_real(H, rom_dim)
-	z = -ew.conj()
-		
+	
 	for it in range(maxiter):
+		Hr = Hr.to_diagonal()
+		
+		z = -Hr.ew.conj()
 		# construct data for system
 		Hb = []
 		cH = []
 		cHpb = []
-
 		for i in range(rom_dim):
-			Hb_, Hpb_ = H.transfer(z[i], right_tangent = b[i], der = True)
-			cH_ = H.transfer(z[i], left_tangent = c[:,i])
+			Hb_, Hpb_ = H.transfer(z[i], right_tangent = Hr.B[i], der = True)
+			cH_ = H.transfer(z[i], left_tangent = Hr.C[:,i])
 			Hb.append(Hb_)
 			cH.append(cH_)
-			cHpb.append( c[:,i] @ Hpb_)
+			cHpb.append( Hr.C[:,i] @ Hpb_)
 	
 		# Build interpolant	
-		Hr = tangential_hermite_interpolant(z, Hb, cH, cHpb, b, c.T)
+		Hr = tangential_hermite_interpolant(z, Hb, cH, cHpb, Hr.B, Hr.C.T)
+		Hr = Hr.to_diagonal()
 		
-		# Compute poles
-		print("eig", Hr.eig())
-		ew, b, c = init_largest_real(Hr, rom_dim)
-		z = -ew.conj()	 
-		print("z", z)
-		assert False	
+		print("z", z[np.argsort(z.imag)])

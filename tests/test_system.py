@@ -92,14 +92,16 @@ def test_transfer(H):
 
 def test_diagonal():
 	np.random.seed(0)
-	n = 10
+	n = 4
 	m = 3
 	p = 2
+	
+	# Check transfer evaluations
 	A = np.diag(np.random.randn(n) + 1j*np.random.randn(n))
 	B = np.random.randn(n,p)
 	C = np.random.randn(m,n)
 	H = StateSpaceSystem(A,B,C)
-	#H = build_iss(sparse = False)
+	
 	Hd = DiagonalStateSpaceSystem(np.diag(A), B, C)
 	N = 10
 	z = np.random.randn(N) + 1j*np.random.randn(N)
@@ -110,7 +112,36 @@ def test_diagonal():
 		print(Hz - Hdz)
 		assert np.allclose(Hz, Hdz)
 	
-	# TODO: Test conversion to diagonal system
+	# Test conversion to diagonal system
+	A = np.random.randn(n,n) + 1j*np.random.randn(n,n)
+	
+	H = StateSpaceSystem(A, B, C)
+	Hd = H.to_diagonal()
+	print(Hd.A)	
+	Hz = H.transfer(z)
+	Hdz = Hd.transfer(z)
+	print(Hz[0])
+	print(Hdz[0])
+	assert np.allclose(Hz, Hdz)
+
+	# Test convert from Descriptor
+	print("testing conversion from DescriptorSystem")
+	E = np.random.randn(n,n) +1j*np.random.randn(n,n)
+	E = E.conj().T @ E
+	#E = np.eye(n)
+	H1 = DescriptorSystem(A, B, C, E)
+	H2 = H1.to_state_space()
+	H3 = H1.to_diagonal()
+	print(H1.transfer(z[0]))
+	print(H2.transfer(z[0]))
+	assert np.allclose(H1.transfer(z), H2.transfer(z))
+	assert np.allclose(H1.transfer(z), H3.transfer(z))
+	
+#	Hz = H.transfer(z)
+#	Hdz = Hd.transfer(z)
+#	print(Hz[0])
+#	print(Hdz[0])
+#	assert np.allclose(Hz, Hdz)
 
 if __name__ == '__main__':
 	H = build_iss(sparse = True)

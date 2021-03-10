@@ -207,6 +207,9 @@ class LTISystem(abc.ABC):
 		else:
 			return np.nan
 
+class ComboSystem(LTISystem):
+	def __init__(*sys):
+		pass
 
 
 class StateSpaceSystem(LTISystem):
@@ -480,40 +483,27 @@ class StateSpaceSystem(LTISystem):
 			return ew
 
 	def eig(self, which = 'all', k = 1, left = False, right = False):
-
-		if left is False and right is False:
-			ew = scipy.linalg.eig(self.A, left = False, right = False)
-		elif right is True and left is True:
-			ew, evL, evR = scipy.linalg.eig(self.A, left = True, right = True) 
-		elif left is True and right is False:
-			ew, evL = scipy.linalg.eig(self.A, left = True, right = False)
-		elif left is False and right is True:
-			ew, evR = scipy.linalg.eig(self.A, left = False, right = True)
-
+		out = scipy.linalg.eig(self.A, left = left, right = right)
 
 		if which != 'all':
-			if which == 'LR':
+			if left is False and right is False:
+				ew = out
+			else:
+				ew = out[0]
+			
+			if which =='LR':
 				I = np.argsort(-ew.real)
-			ew = ew[I[:k]]
-			if left:
-				evL = evL[:,I[:k]]
-			if right:
-				evR = evR[:,I[:k]]
-		
-		if left is False and right is False:
-			return ew
+			if left is False and right is False:
+				return ew[I[:k]]
+			else:
+				return [ew[I[:k]]] + [o[:,I[:k]] for o in out[1:]]
+		else:
+			return out
 
-		out = [ew]
-		if left:
-			out.append(evL)
-		if right:
-			out.append(evR)
-		
-		return out
 
 	def to_diagonal(self):
-		ew, evL, evR = self.eig(left = True, right = True)
-		B = evL.conj().T @ self.B
+		ew, evR = self.eig(right = True)
+		B = scipy.linalg.solve(evR, self.B)
 		C = self.C @ evR
 		return DiagonalStateSpaceSystem(ew, B, C) 	
 
@@ -580,6 +570,8 @@ class DiagonalStateSpaceSystem(SparseStateSpaceSystem):
 	def to_dense(self):
 		return StateSpaceSystem(np.diag(self.ew), self.B, self.C)
 
+	def to_diagonal(self):
+		return self
 
 class DescriptorSystem(StateSpaceSystem):
 	def __init__(self, A, B, C, E):
@@ -604,11 +596,38 @@ class DescriptorSystem(StateSpaceSystem):
 			return ew[I[:k]]
 		elif which == 'all':
 			return ew
+	
+	def eig(self, which = 'all', k = 1, left = False, right = False):
+		out = scipy.linalg.eig(self.A, self.E, left = left, right = right)
 
+		print('ew', out)
+		if which == 'all':
+			return out
+
+		if left is False and right is False:
+			ew = out
+		else:
+			ew = out[0]
+		
+		if which =='LR':
+			I = np.argsort(-ew.real)
+		if left is False and right is False:
+			return ew[I[:k]]
+		else:
+			return [ew[I[:k]]] + [o[:,I[:k]] for o in out[1:]]
 
 	def to_state_space(self):
-		raise NotImplementedError	
-		
+		# Here we use the SVD rather than directly inverting E to maintain symmetry
+		U, s, VH = scipy.linalg.svd(self.E)
+		A = np.diag(1./np.sqrt(s)) @ U.conj().T @ self.A @ VH.conj().T @ np.diag(1./np.sqrt(s))
+		B = np.diag(1./np.sqrt(s)) @ VH @ self.B
+		C = self.C @ U @ np.diag(1./np.sqrt(s))
+		return StateSpaceSystem(A, B, C) 
+	
+	def to_diagonal(self):
+		return self.to_state_space().to_diagonal()		
+
+	
 class SparseDescriptorSystem(DescriptorSystem, SparseStateSpaceSystem):
 	def __init__(self, A, B, C, E):
 		pass
