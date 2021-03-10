@@ -208,6 +208,335 @@ class LTISystem(abc.ABC):
 			return np.nan
 
 
+
+class StateSpaceSystem(LTISystem):
+	r"""Represents a continuous-time system specified in state-space form
+
+	Given matrices :math:`\mathbf{A}\in \mathbb{C}^{n\times n}`,
+	:math:`\mathbf{B}\in \mathbb{C}^{n\times p}`,
+	and :math:`\mathbf{C}\in \mathbb{C}^{q\times n}`,
+	this class represents the dynamical system
+
+	.. math::
+
+		\mathbf{x}'(t) &= \mathbf{A}\mathbf{x}(t) + \mathbf{B} \mathbf{u}(t) \quad \mathbf{x}(0) = \mathbf{0} \\
+		\mathbf{y}(t) &= \mathbf{C} \mathbf{x}(t).
+
+
+	Parameters
+	----------
+	A: array-like (n,n)
+		System matrix
+	B: array-like (n,p)
+		Matrix mapping input to state
+	C: array-like (q,n)
+		Matrix mapping state to output	
+
+	"""
+
+	def __init__(self, A, B, C):
+		self.A = _make_dense_matrix(A)
+		self.B = _make_dense_matrix(B)
+		self.C = _make_dense_matrix(C)	
+		self.E = np.eye(A.shape[0])
+		
+		if len(B.shape) == 1:
+			self.B = self.B.reshape(-1, 1)
+		if len(C.shape) == 1:
+			self.C = self.C.reshape(1, -1)
+	
+		# Ensure we cannot overwrite this data	
+		for X in [self.A, self.B, self.C, self.E]:
+			X.flags.writeable = False
+
+
+	def _resolvent_solve(self, z, x, mode = 'N'):
+		r""" Solve a linear system associated with this system
+
+		If `mode='N'`:
+
+		.. math:: 
+			(z \mathbf{E} - \mathbf{A})^{-1} \mathbf{x}
+
+		If `mode='T'`:
+		
+		.. math:: 
+			
+			(z \mathbf{E} - \mathbf{A})^{-T} \mathbf{x}
+		
+		If `mode='H'`:
+		
+		.. math:: 
+			
+			(z \mathbf{E} - \mathbf{A})^{-*} \mathbf{x}
+
+
+		"""
+		mode = mode.upper()
+		assert mode in ['N', 'T', 'H']
+
+		if mode == 'N':
+			return scipy.linalg.solve(z * self.E - self.A, x)
+		elif mode == 'T':
+			return scipy.linalg.solve(z * self.E.T - self.A.T, x)
+		elif mode == 'H':
+			return scipy.linalg.solve(z * self.E.T.conj() - self.A.T.conj(), x)
+		
+
+	
+	def transfer(self, z, der = False, left_tangent = None, right_tangent = None):
+		z = np.atleast_1d(z)
+		n = len(z)
+
+		if left_tangent is None:
+			C = self.C
+		else:
+			C = left_tangent @ self.C
+
+		if right_tangent is None:
+			B = self.B
+		else:
+			B = self.B @ right_tangent
+
+		Hz = np.zeros((n, C.shape[0], B.shape[1]), dtype = np.complex)
+		if der:
+			Hpz = np.zeros((n, C.shape[0], B.shape[1]), dtype = np.complex)
+
+		if B.shape[1] <= C.shape[0]:
+			for i in range(n):
+				# H(z) = C @ inv(z*E - A) @ B
+				#R = scipy.linalg.solve(z[i] * self.E - self.A, B)
+				R = self._resolvent_solve(z[i], B)
+				Hz[i] = C @ R
+				if der:
+					# H'(z) = -C @ inv(z*E - A) @ E @ inv(z*E - A) @ B
+					Hpz[i] = - C @ self._resolvent_solve(z[i], self.E @ R) 
+		else:
+			for i in range(n):
+				R = self._resolvent_solve(z[i].conj(), C.conj().T, mode = 'H')
+				Hz[i] = R.conj().T @ B
+				if der:
+					R2 = self._resolvent_solve(z[i].conj(), (R.conj().T @ self.E).conj().T, mode = 'H')
+					Hpz[i] = -R2.conj().T @ B
+				
+			
+		if der:
+			return Hz, Hpz
+		else:
+			return Hz
+
+
+	def __getitem__(self, key):
+		"""Extract a subsystem component-wise
+		"""
+		if isinstance(key, tuple):
+			C = self.C[key[0]]
+			B = self.B[:,key[1]]
+		else:
+			C = self.C[key]
+			B = self.B
+
+		if isinstance(self, [StateSpaceSystem, SparseStateSpaceSystem]):
+			return type(self)(self.A, B, C)
+		elif isinstance(self, [DescriptorSystem]):
+			return type(self)(self.A, B, C, self.E)
+
+
+	@property
+	def state_dim(self):
+		return self.A.shape[0]
+
+	@property
+	def input_dim(self):
+		return self.B.shape[1]
+
+	@property
+	def output_dim(self):
+		return self.C.shape[0]
+
+	@property
+	def lim_zH(self):
+		#TODO: Check this is valid for complex systems as well
+		lim_zH = self.C @ self.E @ self.B 
+		return [lim_zH, lim_zH]
+
+
+	def norm(self):
+		r""" Computes the H2 norm
+		"""
+		if self.spectral_abscissa() >= 0:
+			return np.inf
+		# Replace with code that exploits Q is rank-1 and sparse structure for A
+		norm2 = 0
+		for i in range(self.input_dim):
+			for j in range(self.output_dim):
+				Q = -np.outer(self.B[:,i], self.B[:,i].conjugate())
+				with catch_warnings(record = True) as w:
+					X = solve_lyapunov(self.A, Q)
+					if any([isinstance(w_, RuntimeWarning) for w_ in w]):
+						print(w)
+						return np.nan
+					norm2_term = np.dot(self.C[j,:], np.dot(X, self.C[j,:].conjugate().T))
+				if norm2_term < 0 and np.abs(norm2_term) < 1e-14:
+					norm2_term = 0
+				norm2 += norm2_term
+		return np.sqrt(norm2.real)
+
+
+	def __add__(self, other):
+		if self.input_dim != other.input_dim:
+			raise ValueError("Input dimensions must be the same")
+		if self.output_dim != other.output_dim:
+			raise ValueError("Output dimensions must be the same")
+
+		# By default for now, we convert things that are state-space systems to
+		# dense systems for the combination
+		if isinstance(other, SparseStateSpaceSystem):
+			A = block_diag(self.A, other.A.todense() )
+		elif isinstance(other, (StateSpaceSystem, ZeroSystem)):
+			A = block_diag(self.A, other.A)
+		else: 
+			raise NotImplementedError("Don't know how to combine these systems")
+
+		B = np.vstack([self.B, other.B])
+		C = np.hstack([self.C, other.C])
+
+		return StateSpaceSystem(A, B, C)
+
+	def __sub__(self, other):
+		if self.input_dim != other.input_dim:
+			raise ValueError("Input dimensions must be the same")
+		if self.output_dim != other.output_dim:
+			raise ValueError("Output dimensions must be the same")
+		
+		if isinstance(other, SparseStateSpaceSystem):
+			A = block_diag(self.A, other.A.todense() )
+			B = np.vstack([self.B, other.B])
+			C = np.hstack([self.C, -1*other.C])
+		elif isinstance(other, (StateSpaceSystem,ZeroSystem)):
+			A = block_diag(self.A, other.A)
+			B = np.vstack([self.B, other.B])
+			C = np.hstack([self.C, -1*other.C])
+		else: 
+			raise NotImplementedError("Don't know how to combine these systems")
+
+		return StateSpaceSystem(A, B, C)
+
+	def __mul__(self, other):
+		ret = deepcopy(self)
+		ret.C_ *= other
+		return ret
+
+	def __rmul__(self, other):
+		ret = deepcopy(self)
+		ret.C_ *= other
+		return ret
+
+	@property
+	def isreal(self):
+		if self.E is None:
+			return np.isrealobj(self.A) & np.all(np.isreal(self.B)) & np.all(np.isreal(self.C))
+		else:
+			return np.isrealobj(self.A) & np.all(np.isreal(self.B)) & np.all(np.isreal(self.C)) & np.isrealobj(self.E)
+
+	def pole_residue(self):
+		r""" Compute the poles and residues of this system
+		"""
+		lam, V = scipy.linalg.eig(self.A)
+		#B = V.dot(self.B)
+		#C = scipy.linalg.solve(V.T, self.C.T).T
+		B = scipy.linalg.solve(V, self.B)
+		C = self.C.dot(V)
+		rho = np.array([np.outer(B[i,:], C[:,i]) for i in range(len(lam))])
+		return lam, rho
+
+	def poles(self, which = 'all', k =  1):
+		r"""Return the poles of the system
+
+		The eigenvalues of :math:`\mathbf{A}` are the poles of the transfer function :math:`H`.
+		Here we compute the eigenvalues of this matrix using a similar interface to :code:`eigs`
+
+		Parameters
+		----------
+		which: ['LR','all']
+			Which eigenvalues to compute 
+
+			* LR: largest real
+
+		k : int
+			Number of poles to return	
+		"""
+		assert which in ['all', 'LR'], "invalid value for 'which'"
+
+		ew = scipy.linalg.eig(self.A, left=False, right=False)
+		if which == 'LR':
+			I = np.argsort(-ew.real)
+			return ew[I[:k]]
+		elif which == 'all':
+			return ew
+
+	def spectral_abscissa(self):
+		ew = self.poles(which = 'LR', k = 1)
+		return ew.real		
+
+class SparseStateSpaceSystem(StateSpaceSystem):
+	def __init__(self, A, B, C):
+		self.A = csr_matrix(A)
+		self.B = _make_dense_matrix(B)
+		self.C = _make_dense_matrix(C)
+		self.E = scipy.sparse.eye(A.shape[0])
+
+	def _resolvent_solve(self, z, x, mode = 'N'):
+		x = np.atleast_2d(x)
+		out = np.zeros((self.A.shape[0], x.shape[1]), dtype = np.complex)
+
+		if mode == 'N':
+			AA = z*self.E - self.A
+		elif mode == 'T':
+			AA = z*self.E.T - self.A.T
+		elif mode == 'H':
+			AA = z*self.E.T.conj() - self.A.T.conj()
+		
+		# Convert for storage effiency		
+		AA = AA.tocsc()
+		# Use GMRES with ILU preconditioning
+		ilu = scipy.sparse.linalg.spilu(AA)
+		M = scipy.sparse.linalg.LinearOperator(AA.shape, ilu.solve)
+		for i in range(x.shape[1]):
+			out[:,i], info = scipy.sparse.linalg.gmres(AA, x[:,i], tol = 1e-10, atol = 1e-10, M = M)
+			assert info == 0
+
+		return out
+
+class DescriptorSystem(StateSpaceSystem):
+	def __init__(self, A, B, C, E):
+		self.A = _make_dense_matrix(A)
+		self.B = _make_dense_matrix(B)
+		self.C = _make_dense_matrix(C)	
+		self.E = _make_dense_matrix(E)
+		
+		if len(B.shape) == 1:
+			self.B = self.B.reshape(-1, 1)
+		if len(C.shape) == 1:
+			self.C = self.C.reshape(1, -1)
+		 
+		# Ensure we cannot overwrite this data	
+		for X in [self.A, self.B, self.C, self.E]:
+			X.flags.writeable = False
+
+	def poles(self, which = 'all', k = 1):
+		ew = scipy.linalg.eig(self.A, self.E, left=False, right=False)
+		if which == 'LR':
+			I = np.argsort(-ew.real)
+			return ew[I[:k]]
+		elif which == 'all':
+			return ew
+		
+class SparseDescriptorSystem(DescriptorSystem, SparseStateSpaceSystem):
+	def __init__(self, A, B, C, E):
+		pass
+
+
 class ComboSystem(LTISystem):
 	r""" Represents a sum of subsystems
 
@@ -379,378 +708,79 @@ class TransferSystem(LTISystem):
 		return TransferSystem(transfer, transfer_der = transfer_der, lim_zH  = lim_zH)
 
 
-class StateSpaceSystem(LTISystem):
-	r"""Represents a continuous-time system specified in state-space form
-
-	Given matrices :math:`\mathbf{A}\in \mathbb{C}^{n\times n}`,
-	:math:`\mathbf{B}\in \mathbb{C}^{n\times p}`,
-	and :math:`\mathbf{C}\in \mathbb{C}^{q\times n}`,
-	this class represents the dynamical system
-
-	.. math::
-
-		\mathbf{x}'(t) &= \mathbf{A}\mathbf{x}(t) + \mathbf{B} \mathbf{u}(t) \quad \mathbf{x}(0) = \mathbf{0} \\
-		\mathbf{y}(t) &= \mathbf{C} \mathbf{x}(t).
 
 
-	Parameters
-	----------
-	A: array-like (n,n)
-		System matrix
-	B: array-like (n,p)
-		Matrix mapping input to state
-	C: array-like (q,n)
-		Matrix mapping state to output	
-
-	"""
-
-	def __init__(self, A, B, C):
-		self._A = _make_dense_matrix(A)
-		self._B = _make_dense_matrix(B)
-		self._C = _make_dense_matrix(C)	
-
-		if len(B.shape) == 1:
-			self._B = self._B.reshape(-1, 1)
-		if len(C.shape) == 1:
-			self._C = self._C.reshape(1, -1)
-
-		self._E = np.eye(A.shape[0])
-
-	def __getitem__(self, key):
-		"""Extract a subsystem component-wise
-		"""
-		if isinstance(key, tuple):
-			C = self.C[key[0]]
-			B = self.B[:,key[1]]
-		else:
-			C = self.C[key]
-
-		if isinstance(self, SparseStateSpaceSystem):
-			return SparseStateSpaceSystem(self.A, B, C)
-		else:
-			return StateSpaceSystem(self.A, B, C)
-
-	@property
-	def A(self):
-		""" State space matrix of size (n,n)
-		"""
-		# TODO: Should this return a copy to prevent overwriting referrence?
-		return self._A
-
-	@property
-	def B(self):
-		""" Input matrix of size (n, input_dim)
-		"""
-		return self._B
-
-	@property
-	def C(self):
-		""" Output matrix of size (output_dim, n)
-		"""
-		return self._C
-
-	@property
-	def E(self):
-		return self._E
-
-
-	@property
-	def state_dim(self):
-		return self.A.shape[0]
-
-	@property
-	def input_dim(self):
-		return self.B.shape[1]
-
-	@property
-	def output_dim(self):
-		return self.C.shape[0]
-
-	@property
-	def lim_zH(self):
-		#TODO: Check this is valid for complex systems as well
-		lim_zH = self.C @ self.E @ self.B 
-		return [lim_zH, lim_zH]
-
-
-	def solve(self, x, mu, mode = 'N'):
-		r""" Solve the linear system associated with the resolvent
-
-		Given the state-space system, solve the linear system
-
-		.. math::
-
-			(\mathbf{E} \mu - \mathbf{A})^{-1} x
-
-		If the mode is 'T', solve the transpose of this system
-
-		"""
-		assert mode in ['N', 'T'], "Invalid mode provided"
-
-		if mode == 'N':
-			return np.linalg.solve(self.E*mu - self.A, x)
-		elif mode == 'T':
-			return np.linalg.solve(self.E.T*mu - self.A.T, x)
-
-	def norm(self):
-		r""" Computes the H2 norm
-		"""
-		if self.spectral_abscissa() >= 0:
-			return np.inf
-		# Replace with code that exploits Q is rank-1 and sparse structure for A
-		norm2 = 0
-		for i in range(self.input_dim):
-			for j in range(self.output_dim):
-				Q = -np.outer(self.B[:,i], self.B[:,i].conjugate())
-				with catch_warnings(record = True) as w:
-					X = solve_lyapunov(self.A, Q)
-					if any([isinstance(w_, RuntimeWarning) for w_ in w]):
-						print(w)
-						return np.nan
-					norm2_term = np.dot(self.C[j,:], np.dot(X, self.C[j,:].conjugate().T))
-				if norm2_term < 0 and np.abs(norm2_term) < 1e-14:
-					norm2_term = 0
-				norm2 += norm2_term
-		return np.sqrt(norm2.real)
-
-#	def impulse(self, t):
-#		if self.E is not None:
-#			raise NotImplementedError
+#class SparseStateSpaceSystem(StateSpaceSystem):
+#	def __init__(self, A, B, C, E = None):
+#		self._A = csr_matrix(A)
+#		try:
+#			self._B = self._B.todense() 
+#		except:
+#			self._B = np.array(B)
+#		try:
+#			self._C = self._C.todense() 
+#		except:
+#			self._C = np.array(C)
 #
-#		output = np.dot(self.C, np.dot(expm(t * self.A), self.B))
-#		return output.reshape(self.output_dim, self.input_dim)
-
-	def transfer(self, z, der = False, left_tangent = None, right_tangent = None):
-		n = len(z)
-
-		if left_tangent is None and right_tangent is None:
-			Hz = np.zeros((n, self.output_dim, self.input_dim), dtype = np.complex)
-			if der:
-				Hpz = np.zeros((n, self.output_dim, self.input_dim), dtype = np.complex)
-	
-			for i in range(n):
-				R = scipy.linalg.solve(z[i] * self.E - self.A, self.B)
-				Hz[i] = self.C @ R
-				if der:
-					Hpz[i] = - self.C @ scipy.linalg.solve(z[i] * self.E - self.A, R) 
-			
-			if der:
-				return Hz, Hpz
-
-#		for i in range(n):
-#			x = solve(I*z[i] - self.A, self.B)
-#			Hz[i,:,:] = np.dot(self.C, x)
-#			if der:
-#				IA = z[i] * I - self.A
-#				x_der = solve(IA, x)
-#				Hpz[i,:,:] = np.dot(-self.C, x_der)
 #
-		if der:
-			return Hz, Hpz
-		else:
-			return Hz
-
-
-	def __add__(self, other):
-		if self.input_dim != other.input_dim:
-			raise ValueError("Input dimensions must be the same")
-		if self.output_dim != other.output_dim:
-			raise ValueError("Output dimensions must be the same")
-
-		# By default for now, we convert things that are state-space systems to
-		# dense systems for the combination
-		if isinstance(other, SparseStateSpaceSystem):
-			A = block_diag(self.A, other.A.todense() )
-		elif isinstance(other, (StateSpaceSystem, ZeroSystem)):
-			A = block_diag(self.A, other.A)
-		else: 
-			raise NotImplementedError("Don't know how to combine these systems")
-
-		B = np.vstack([self.B, other.B])
-		C = np.hstack([self.C, other.C])
-
-		return StateSpaceSystem(A, B, C)
-
-	def __sub__(self, other):
-		if self.input_dim != other.input_dim:
-			raise ValueError("Input dimensions must be the same")
-		if self.output_dim != other.output_dim:
-			raise ValueError("Output dimensions must be the same")
-		
-		if isinstance(other, SparseStateSpaceSystem):
-			A = block_diag(self.A, other.A.todense() )
-			B = np.vstack([self.B, other.B])
-			C = np.hstack([self.C, -1*other.C])
-		elif isinstance(other, (StateSpaceSystem,ZeroSystem)):
-			A = block_diag(self.A, other.A)
-			B = np.vstack([self.B, other.B])
-			C = np.hstack([self.C, -1*other.C])
-		else: 
-			raise NotImplementedError("Don't know how to combine these systems")
-
-		return StateSpaceSystem(A, B, C)
-
-	def __mul__(self, other):
-		ret = deepcopy(self)
-		ret.C_ *= other
-		return ret
-
-	def __rmul__(self, other):
-		ret = deepcopy(self)
-		ret.C_ *= other
-		return ret
-
-	@property
-	def isreal(self):
-		if self.E is None:
-			return np.isrealobj(self.A) & np.all(np.isreal(self.B)) & np.all(np.isreal(self.C))
-		else:
-			return np.isrealobj(self.A) & np.all(np.isreal(self.B)) & np.all(np.isreal(self.C)) & np.isrealobj(self.E)
-
-	def pole_residue(self):
-		r""" Compute the poles and residues of this system
-		"""
-		lam, V = scipy.linalg.eig(self.A)
-		#B = V.dot(self.B)
-		#C = scipy.linalg.solve(V.T, self.C.T).T
-		B = scipy.linalg.solve(V, self.B)
-		C = self.C.dot(V)
-		rho = np.array([np.outer(B[i,:], C[:,i]) for i in range(len(lam))])
-		return lam, rho
-
-	def poles(self, which = 'all', k =  1):
-		r"""Return the poles of the system
-
-		The eigenvalues of :math:`\mathbf{A}` are the poles of the transfer function :math:`H`.
-		Here we compute the eigenvalues of this matrix using a similar interface to :code:`eigs`
-
-		Parameters
-		----------
-		which: ['LR','all']
-			Which eigenvalues to compute 
-
-			* LR: largest real
-
-		k : int
-			Number of poles to return	
-		"""
-		ew = eig(self.A, left=False, right=False)
-		if which == 'LR':
-			I = np.argsort(-ew.real)
-		elif which == 'all':
-			return ew
-		else:
-			raise NotImplementedError
-		return ew[I[:k]]
-
-#	def poles(self):
-#		if self.E is not None:
-#			raise NotImplementedError
-#		if issparse(self.A):
-#			ew = eig(self.A.todense(), left=False, right=False)
+#
+#	def __add__(self, other):
+#		if self.input_dim != other.input_dim:
+#			raise ValueError("Input dimensions must be the same")
+#		if self.output_dim != other.output_dim:
+#			raise ValueError("Output dimensions must be the same")
+#
+#		if isinstance(other, SparseStateSpaceSystem):
+#			A = spblock_diag([self.A, other.A])
+#		elif isinstance(other, StateSpaceSystem):
+#			A = block_diag(self.A.todense(), other.A)
+#
+#		B = np.vstack([self.B, other.B])
+#		C = np.hstack([self.C, other.C])
+#		
+#		if isinstance(other, SparseStateSpaceSystem):
+#			return SparseStateSpaceSystem(A, B, C)
 #		else:
-#			ew = eig(self.A, left=False, right=False)
-#		return ew
-
-	def spectral_abscissa(self):
-		ew = eigvals(self.A)
-		return np.max(ew.real)
-
-
-class SparseStateSpaceSystem(StateSpaceSystem):
-	def __init__(self, A, B, C, E = None):
-		self._A = csr_matrix(A)
-		try:
-			self._B = self._B.todense() 
-		except:
-			self._B = np.array(B)
-		try:
-			self._C = self._C.todense() 
-		except:
-			self._C = np.array(C)
-
-
-	def spectral_abscissa(self):
-		ew = eigs(self.A, 1, which = 'LR', return_eigenvectors = False)
-		return float(ew.real)
-
-
-	def __add__(self, other):
-		if self.input_dim != other.input_dim:
-			raise ValueError("Input dimensions must be the same")
-		if self.output_dim != other.output_dim:
-			raise ValueError("Output dimensions must be the same")
-
-		if isinstance(other, SparseStateSpaceSystem):
-			A = spblock_diag([self.A, other.A])
-		elif isinstance(other, StateSpaceSystem):
-			A = block_diag(self.A.todense(), other.A)
-
-		B = np.vstack([self.B, other.B])
-		C = np.hstack([self.C, other.C])
-		
-		if isinstance(other, SparseStateSpaceSystem):
-			return SparseStateSpaceSystem(A, B, C)
-		else:
-			return StateSpaceSystem(A, B, C)
+#			return StateSpaceSystem(A, B, C)
+#
+#
+#	def __sub__(self, other):
+#		if self.input_dim != other.input_dim:
+#			raise ValueError("Input dimensions must be the same")
+#		if self.output_dim != other.output_dim:
+#			raise ValueError("Output dimensions must be the same")
+#
+#		if isinstance(other, SparseStateSpaceSystem):
+#			A = spblock_diag([self.A, other.A])
+#		elif isinstance(other, StateSpaceSystem):
+#			A = block_diag(self.A.todense(), other.A)
+#
+#		B = np.vstack([self.B, other.B])
+#		C = np.hstack([self.C, -1*other.C])
+#		
+#		if isinstance(other, SparseStateSpaceSystem):
+#			return SparseStateSpaceSystem(A, B, C)
+#		else:
+#			return StateSpaceSystem(A, B, C)
+#	# Implement poles	
+#	def pole_residue(self):
+#		r""" Compute the poles and residues of this system
+#		"""
+#		# TODO Improve efficiency
+#		lam, V = scipy.linalg.eig(self.A.toarray())
+#		#B = V.dot(self.B)
+#		#C = scipy.linalg.solve(V.T, self.C.T).T
+#		B = scipy.linalg.solve(V, self.B)
+#		C = self.C.dot(V)
+#		rho = np.array([np.outer(B[i,:], C[:,i]) for i in range(len(lam))])
+#		return lam, rho
+#
+#	def norm(self):
+#		A = self.A.todense()
+#		sys = StateSpaceSystem(A, self.B, self.C)
+#		return sys.norm()	
 
 
-	def __sub__(self, other):
-		if self.input_dim != other.input_dim:
-			raise ValueError("Input dimensions must be the same")
-		if self.output_dim != other.output_dim:
-			raise ValueError("Output dimensions must be the same")
-
-		if isinstance(other, SparseStateSpaceSystem):
-			A = spblock_diag([self.A, other.A])
-		elif isinstance(other, StateSpaceSystem):
-			A = block_diag(self.A.todense(), other.A)
-
-		B = np.vstack([self.B, other.B])
-		C = np.hstack([self.C, -1*other.C])
-		
-		if isinstance(other, SparseStateSpaceSystem):
-			return SparseStateSpaceSystem(A, B, C)
-		else:
-			return StateSpaceSystem(A, B, C)
-	# Implement poles	
-	def pole_residue(self):
-		r""" Compute the poles and residues of this system
-		"""
-		# TODO Improve efficiency
-		lam, V = scipy.linalg.eig(self.A.toarray())
-		#B = V.dot(self.B)
-		#C = scipy.linalg.solve(V.T, self.C.T).T
-		B = scipy.linalg.solve(V, self.B)
-		C = self.C.dot(V)
-		rho = np.array([np.outer(B[i,:], C[:,i]) for i in range(len(lam))])
-		return lam, rho
-
-	def norm(self):
-		A = self.A.todense()
-		sys = StateSpaceSystem(A, self.B, self.C)
-		return sys.norm()	
-
-
-class DescriptorSystem(LTISystem):
-	def __init__(self, A, B, C, E):
-		self._A = A
-		self._B = B
-		self._C = C
-		self._E = E
-		 
-	def transfer(self, z, der = False, left_tangent = None, right_tangent = None):
-		if der:
-			raise NotImplementedError
-
-		n = len(z)
-		if left_tangent is None and right_tangent is None:
-			Hz = np.zeros((n, self.output_dim, self.input_dim), dtype = np.complex)
-			for i in range(n):
-				Hz[i] = self.C @ scipy.linalg.solve(z[i] * self.E - self.A, self.B)
-		elif right_tangent is not None:
-			Hz = 
-		pass	
 
 class PoleResidueSystem(SparseStateSpaceSystem):
 	def __init__(self, poles, residues):
