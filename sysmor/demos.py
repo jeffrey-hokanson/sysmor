@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.sparse as ss
-from .system import TransferSystem, StateSpaceSystem 
+from .system import TransferSystem, StateSpaceSystem, SparseStateSpaceSystem
 import os 
 
 # Extract the path of this file
@@ -198,7 +198,7 @@ def build_iss(sparse = False):
 	C = data['C']
 
 	if sparse:
-		raise NotImplementedError
+		return SparseStateSpaceSystem(A, B, C)
 
 	return StateSpaceSystem(A, B, C)
 

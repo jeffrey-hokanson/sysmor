@@ -33,7 +33,14 @@ def make_systems():
 	
 	Hs = SparseStateSpaceSystem(A, B, C)
 	Hiss = build_iss(sparse = True)
-	return [Hs, Hd, Hiss]
+
+	Hd = DescriptorSystem(A, B, C, np.eye(A.shape[0]))
+
+	A = np.random.randn(n,n) + 1j*np.random.randn(n,n)
+	E = np.random.randn(n,n) + 1j*np.random.randn(n,n)
+	E = E.conj().T @ E
+	Hd2 = DescriptorSystem(A, B, C, E)
+	return [Hs, Hd, Hiss, Hd2]
 
 @pytest.mark.parametrize("H", make_systems())
 def test_transfer(H):
@@ -62,10 +69,14 @@ def test_transfer(H):
 	assert np.allclose(err, 0)
 
 	print("checking transpose of system")
-	H2 = type(H)(H.A.conj().T, H.C.conj().T, H.B.conj().T)
+	if isinstance(H, DescriptorSystem):
+		H2 = type(H)(H.A.conj().T, H.C.conj().T, H.B.conj().T, H.E.conj().T)
+	else:
+		H2 = type(H)(H.A.conj().T, H.C.conj().T, H.B.conj().T)
 	H2z = H2.transfer(z.conj()).conj().transpose([0,2,1])
 	err = H2z - Hz
-	assert np.allclose(err, 0)
+	print(err)
+	assert np.allclose(Hz, H2z)
 
 	print("checking the dervative")
 	# Check the derivative
@@ -76,10 +87,33 @@ def test_transfer(H):
 		Hpz_est = (H.transfer(z[0] + e*h) - H.transfer(z[0] - e*h))/(2*h*np.abs(e))
 		err = e*Hpz - Hpz_est
 		print(err)
-		assert np.allclose(err, 0, atol = 1e-6)
+		assert np.allclose(e*Hpz, Hpz_est, atol = 1e-6)
 
 
+def test_diagonal():
+	np.random.seed(0)
+	n = 10
+	m = 3
+	p = 2
+	A = np.diag(np.random.randn(n) + 1j*np.random.randn(n))
+	B = np.random.randn(n,p)
+	C = np.random.randn(m,n)
+	H = StateSpaceSystem(A,B,C)
+	#H = build_iss(sparse = False)
+	Hd = DiagonalStateSpaceSystem(np.diag(A), B, C)
+	N = 10
+	z = np.random.randn(N) + 1j*np.random.randn(N)
+
+	for right_tangent in [None, np.random.randn(p,1), np.random.randn(p)]:
+		Hz = H.transfer(z, right_tangent = right_tangent)
+		Hdz = Hd.transfer(z, right_tangent = right_tangent)
+		print(Hz - Hdz)
+		assert np.allclose(Hz, Hdz)
+	
+	# TODO: Test conversion to diagonal system
 
 if __name__ == '__main__':
-	test_transfer()
+	H = build_iss(sparse = True)
+	#test_transfer(H)
+	test_diagonal()
 	

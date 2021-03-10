@@ -55,5 +55,5 @@ def test_tfirka():
 
 
 if __name__ == '__main__':
-	#test_build_Hermite()
-	test_tfirka()
+	test_build_Hermite()
+	#test_tfirka()

@@ -25,8 +25,8 @@ from numpy.linalg import solve
 from copy import deepcopy
 
 
-__all__ = ['LTISystem', 'ComboSystem', 'StateSpaceSystem', 'SparseStateSpaceSystem', 
-		'TransferSystem', 'PoleResidueSystem', 'ZeroSystem']
+#__all__ = ['LTISystem', 'ComboSystem', 'StateSpaceSystem', 'SparseStateSpaceSystem', 
+#		'TransferSystem', 'PoleResidueSystem', 'ZeroSystem']
 
 
 def _make_dense_matrix(A):
@@ -291,11 +291,15 @@ class StateSpaceSystem(LTISystem):
 		if left_tangent is None:
 			C = self.C
 		else:
+			if len(left_tangent.shape) == 1:
+				left_tangent = left_tangent.reshape(1,-1)
 			C = left_tangent @ self.C
 
 		if right_tangent is None:
 			B = self.B
 		else:
+			if len(right_tangent.shape) == 1:
+				right_tangent = right_tangent.reshape(-1,1)
 			B = self.B @ right_tangent
 
 		Hz = np.zeros((n, C.shape[0], B.shape[1]), dtype = np.complex)
@@ -336,7 +340,7 @@ class StateSpaceSystem(LTISystem):
 			C = self.C[key]
 			B = self.B
 
-		if isinstance(self, [StateSpaceSystem, SparseStateSpaceSystem]):
+		if isinstance(self, (StateSpaceSystem, SparseStateSpaceSystem)):
 			return type(self)(self.A, B, C)
 		elif isinstance(self, [DescriptorSystem]):
 			return type(self)(self.A, B, C, self.E)
@@ -475,6 +479,45 @@ class StateSpaceSystem(LTISystem):
 		elif which == 'all':
 			return ew
 
+	def eig(self, which = 'all', k = 1, left = False, right = False):
+
+		if left is False and right is False:
+			ew = scipy.linalg.eig(self.A, left = False, right = False)
+		elif right is True and left is True:
+			ew, evL, evR = scipy.linalg.eig(self.A, left = True, right = True) 
+		elif left is True and right is False:
+			ew, evL = scipy.linalg.eig(self.A, left = True, right = False)
+		elif left is False and right is True:
+			ew, evR = scipy.linalg.eig(self.A, left = False, right = True)
+
+
+		if which != 'all':
+			if which == 'LR':
+				I = np.argsort(-ew.real)
+			ew = ew[I[:k]]
+			if left:
+				evL = evL[:,I[:k]]
+			if right:
+				evR = evR[:,I[:k]]
+		
+		if left is False and right is False:
+			return ew
+
+		out = [ew]
+		if left:
+			out.append(evL)
+		if right:
+			out.append(evR)
+		
+		return out
+
+	def to_diagonal(self):
+		ew, evL, evR = self.eig(left = True, right = True)
+		B = evL.conj().T @ self.B
+		C = self.C @ evR
+		return DiagonalStateSpaceSystem(ew, B, C) 	
+
+
 	def spectral_abscissa(self):
 		ew = self.poles(which = 'LR', k = 1)
 		return ew.real		
@@ -497,16 +540,46 @@ class SparseStateSpaceSystem(StateSpaceSystem):
 		elif mode == 'H':
 			AA = z*self.E.T.conj() - self.A.T.conj()
 		
-		# Convert for storage effiency		
+		# Convert to CSC for access effiency		
 		AA = AA.tocsc()
 		# Use GMRES with ILU preconditioning
 		ilu = scipy.sparse.linalg.spilu(AA)
 		M = scipy.sparse.linalg.LinearOperator(AA.shape, ilu.solve)
 		for i in range(x.shape[1]):
 			out[:,i], info = scipy.sparse.linalg.gmres(AA, x[:,i], tol = 1e-10, atol = 1e-10, M = M)
-			assert info == 0
+			assert info == 0, "GMRES Failed"
 
 		return out
+
+	def to_dense(self):
+		return StateSpaceSystem(self.A.todense(), self.B, self.C)
+
+class DiagonalStateSpaceSystem(SparseStateSpaceSystem):
+	def __init__(self, ew, B, C):
+		self.ew = np.array(ew)
+		self.B = _make_dense_matrix(B)
+		self.C = _make_dense_matrix(C)
+		self.E = scipy.sparse.eye(ew.shape[0])
+
+	@property
+	def A(self):
+		return scipy.sparse.diags(self.ew)
+
+	def _resolvent_solve(self, z, x, mode = 'N'):
+		if mode == 'N' or mode == 'T':
+			if len(x.shape) == 1:
+				return np.multiply(1./(z - self.ew), x)
+			elif len(x.shape) == 2:
+				return np.multiply(1./(z - self.ew)[:,None], x)
+		elif mode == 'H':	
+			if len(x.shape) == 1:
+				return np.multiply(1./(z - self.ew.conj()), x)
+			elif len(x.shape) == 2:
+				return np.multiply(1./(z - self.ew[:,None]).conj(), x)
+
+	def to_dense(self):
+		return StateSpaceSystem(np.diag(self.ew), self.B, self.C)
+
 
 class DescriptorSystem(StateSpaceSystem):
 	def __init__(self, A, B, C, E):
@@ -531,10 +604,17 @@ class DescriptorSystem(StateSpaceSystem):
 			return ew[I[:k]]
 		elif which == 'all':
 			return ew
+
+
+	def to_state_space(self):
+		raise NotImplementedError	
 		
 class SparseDescriptorSystem(DescriptorSystem, SparseStateSpaceSystem):
 	def __init__(self, A, B, C, E):
 		pass
+
+	def to_dense(self):
+		return DescriptorSystem(self.A.todense(), self.B, self.C, self.E.todense())
 
 
 class ComboSystem(LTISystem):
