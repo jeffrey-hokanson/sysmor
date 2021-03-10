@@ -12,9 +12,10 @@ def test_pole_residue():
 	B = np.ones(A.shape[0])
 	C = np.ones(A.shape[0])
 	H = StateSpaceSystem(Q.T.dot(A).dot(Q), B, C)
-
+	print(H)
 	lam, rho = H.pole_residue()
 	H2 = PoleResidueSystem(lam, rho)
+	diff = H - H2
 	err = (H - H2).norm()/H.norm()
 	print("error", err)
 	assert err < 1e-7

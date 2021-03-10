@@ -29,10 +29,19 @@ __all__ = ['LTISystem', 'ComboSystem', 'StateSpaceSystem', 'SparseStateSpaceSyst
 		'TransferSystem', 'PoleResidueSystem', 'ZeroSystem']
 
 
+def _make_dense_matrix(A):
+	try:
+		return A.toarray()
+	except:
+		return np.array(A)
+
+
 class LTISystem(abc.ABC):
 	""" Abstract base class for linear-time invariant systems
 	"""
-	def transfer(self, z, der = False):
+
+	@abc.abstractmethod
+	def transfer(self, z, der = False, left_tangent = None, right_tangent = None):
 		r"""Evaluate the transfer function of the system
 	
 		A dynamical system is uniquely defined in terms of its transfer function 
@@ -216,7 +225,7 @@ class ComboSystem(LTISystem):
 	def __init__(self, *args):
 		self.subsystems = args
 
-	def _transfer(self, z, der = False):
+	def transfer(self, z, der = False):
 		Hz = np.zeros((len(z), self.output_dim, self.input_dim), dtype = np.complex)
 		if der:
 			Hzp = np.zeros((len(z), self.output_dim, self.input_dim), dtype = np.complex)
@@ -299,7 +308,7 @@ class TransferSystem(LTISystem):
 		else:
 			return self._lim_zH
 
-	def _transfer(self, z, der = False):
+	def transfer(self, z, der = False):
 		n = len(z)
 		if self._vectorized:
 			Hz = self._scaling*(self._H(z)).reshape(n, self.output_dim, self.input_dim)
@@ -396,19 +405,9 @@ class StateSpaceSystem(LTISystem):
 	"""
 
 	def __init__(self, A, B, C):
-	
-		try:
-			self._A = A.todense()
-		except:
-			self._A = np.array(A)
-		try:
-			self._B = B.todense() 
-		except:
-			self._B = np.array(B)
-		try:
-			self._C = C.todense() 
-		except:
-			self._C = np.array(C)
+		self._A = _make_dense_matrix(A)
+		self._B = _make_dense_matrix(B)
+		self._C = _make_dense_matrix(C)	
 
 		if len(B.shape) == 1:
 			self._B = self._B.reshape(-1, 1)
@@ -470,7 +469,7 @@ class StateSpaceSystem(LTISystem):
 	@property
 	def lim_zH(self):
 		#TODO: Check this is valid for complex systems as well
-		lim_zH = np.dot(self.C, self.B)
+		lim_zH = self.C @ self.E @ self.B 
 		return [lim_zH, lim_zH]
 
 
@@ -492,9 +491,6 @@ class StateSpaceSystem(LTISystem):
 			return np.linalg.solve(self.E*mu - self.A, x)
 		elif mode == 'T':
 			return np.linalg.solve(self.E.T*mu - self.A.T, x)
-	
-
-
 
 	def norm(self):
 		r""" Computes the H2 norm
@@ -509,10 +505,11 @@ class StateSpaceSystem(LTISystem):
 				with catch_warnings(record = True) as w:
 					X = solve_lyapunov(self.A, Q)
 					if any([isinstance(w_, RuntimeWarning) for w_ in w]):
+						print(w)
 						return np.nan
 					norm2_term = np.dot(self.C[j,:], np.dot(X, self.C[j,:].conjugate().T))
-				if norm2_term < 0:
-					return np.nan
+				if norm2_term < 0 and np.abs(norm2_term) < 1e-14:
+					norm2_term = 0
 				norm2 += norm2_term
 		return np.sqrt(norm2.real)
 
@@ -523,22 +520,31 @@ class StateSpaceSystem(LTISystem):
 #		output = np.dot(self.C, np.dot(expm(t * self.A), self.B))
 #		return output.reshape(self.output_dim, self.input_dim)
 
-	def _transfer(self, z, der = False):
+	def transfer(self, z, der = False, left_tangent = None, right_tangent = None):
 		n = len(z)
 
-		Hz = np.zeros((n, self.output_dim, self.input_dim), dtype = np.complex)
-		if der:
-			Hpz = np.zeros((n, self.output_dim, self.input_dim), dtype = np.complex)
-		
-		I = eye(self.A.shape[0])
-		for i in range(n):
-			x = solve(I*z[i] - self.A, self.B)
-			Hz[i,:,:] = np.dot(self.C, x)
+		if left_tangent is None and right_tangent is None:
+			Hz = np.zeros((n, self.output_dim, self.input_dim), dtype = np.complex)
 			if der:
-				IA = z[i] * I - self.A
-				x_der = solve(IA, x)
-				Hpz[i,:,:] = np.dot(-self.C, x_der)
+				Hpz = np.zeros((n, self.output_dim, self.input_dim), dtype = np.complex)
+	
+			for i in range(n):
+				R = scipy.linalg.solve(z[i] * self.E - self.A, self.B)
+				Hz[i] = self.C @ R
+				if der:
+					Hpz[i] = - self.C @ scipy.linalg.solve(z[i] * self.E - self.A, R) 
+			
+			if der:
+				return Hz, Hpz
 
+#		for i in range(n):
+#			x = solve(I*z[i] - self.A, self.B)
+#			Hz[i,:,:] = np.dot(self.C, x)
+#			if der:
+#				IA = z[i] * I - self.A
+#				x_der = solve(IA, x)
+#				Hpz[i,:,:] = np.dot(-self.C, x_der)
+#
 		if der:
 			return Hz, Hpz
 		else:
@@ -726,6 +732,26 @@ class SparseStateSpaceSystem(StateSpaceSystem):
 		return sys.norm()	
 
 
+class DescriptorSystem(LTISystem):
+	def __init__(self, A, B, C, E):
+		self._A = A
+		self._B = B
+		self._C = C
+		self._E = E
+		 
+	def transfer(self, z, der = False, left_tangent = None, right_tangent = None):
+		if der:
+			raise NotImplementedError
+
+		n = len(z)
+		if left_tangent is None and right_tangent is None:
+			Hz = np.zeros((n, self.output_dim, self.input_dim), dtype = np.complex)
+			for i in range(n):
+				Hz[i] = self.C @ scipy.linalg.solve(z[i] * self.E - self.A, self.B)
+		elif right_tangent is not None:
+			Hz = 
+		pass	
+
 class PoleResidueSystem(SparseStateSpaceSystem):
 	def __init__(self, poles, residues):
 		self._poles = np.atleast_1d(np.array(poles))
@@ -733,7 +759,7 @@ class PoleResidueSystem(SparseStateSpaceSystem):
 		# TODO: What about MIMO pole residue systems
 		self._residues = np.array(residues).reshape(n, 1,1)
 
-	def _transfer(self, z, der = False):
+	def transfer(self, z, der = False):
 		if der:
 			raise NotImplementedError
 
