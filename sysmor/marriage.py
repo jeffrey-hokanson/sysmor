@@ -106,6 +106,10 @@ def hungarian_sort(a, b):
 	I = np.argsort(row)
 	return col[I]	
 
+def hungarian_norm(a, b):
+	I = hungarian_sort(a, b)
+	return np.linalg.norm(a - b[I])
+
 
 if __name__ == "__main__":
 	a = np.arange(11)

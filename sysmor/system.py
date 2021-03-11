@@ -567,6 +567,9 @@ class DiagonalStateSpaceSystem(SparseStateSpaceSystem):
 			elif len(x.shape) == 2:
 				return np.multiply(1./(z - self.ew[:,None]).conj(), x)
 
+	def poles(self):
+		return self.ew
+
 	def to_dense(self):
 		return StateSpaceSystem(np.diag(self.ew), self.B, self.C)
 

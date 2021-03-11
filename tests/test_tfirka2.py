@@ -47,7 +47,7 @@ def test_tangential_interpolant():
 def test_tfirka():
 	np.random.seed(0)
 	H = sysmor.demos.build_iss()
-	r = 4
+	r = 20
 	
 	z = 1j*np.random.randn(r) + 1e-1
 	b = np.random.randn(r, H.input_dim) + 1j*np.random.randn(r, H.input_dim)
@@ -64,7 +64,7 @@ def test_tfirka():
 	
 	#Hr = tangential_hermite_interpolant(z, Hb, cH, cHpb, b, c)
 
-	tfirka(H, r)
+	tfirka(H, r, residue_correct = False)
 	pass
 
 
