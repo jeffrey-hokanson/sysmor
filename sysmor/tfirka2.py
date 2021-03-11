@@ -45,11 +45,9 @@ def modal_truncation(H, r, which = 'LR'):
 	B = scipy.linalg.lstsq(evR, H.B)[0]
 	return DiagonalStateSpaceSystem(ew, B, C)
 
-def tfirka(H, rom_dim, Hr0 = None, maxiter = 10):
+def tfirka(H, rom_dim, Hr0 = None, maxiter = 10, verbose = True):
 	if Hr0 is None:
 		Hr = modal_truncation(H, rom_dim)
-	
-
 	
 	for it in range(maxiter):
 		Hr = Hr.to_diagonal()
