@@ -7,7 +7,6 @@ import iterprinter
 from .realss import fit_real_mimo_statespace_system, pole_residue_to_real_statespace
 from .cauchy import cauchy_ldl 
 
-
 from colorama import Fore, Style
 
 def _norm(weight, x):
@@ -44,7 +43,10 @@ class Weight(LinearOperator):
 	def cond(self):
 		s = scipy.linalg.svdvals(self.L @ np.diag(np.sqrt(self.d)))**2
 		return np.max(s)/np.min(s)
-	
+
+	@property
+	def dtype(self):
+		return self.L.dtype	
 
 def inner_loop(z, Y, r, weight, Hr = None):
 	r"""

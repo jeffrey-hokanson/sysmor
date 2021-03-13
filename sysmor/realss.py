@@ -7,6 +7,7 @@ import scipy.linalg
 
 from .system import StateSpaceSystem
 from .marriage import hungarian_sort 
+from .util import _get_dimensions
 
 # TODO: Move into a better location
 def eval_pole_residue(z, lam, R):
@@ -166,7 +167,7 @@ def _residual(z, Y, alpha, beta, B, C, gamma, b, c):
 	# TODO: better determine if we need complex storage
 	res = np.copy(Y.astype(np.complex))
 	
-	# Handel the complex pairs
+	# Handle the complex pairs
 	Ainv = np.zeros((M,2,2), dtype = np.complex)
 	for k in range(r_c):
 		det = (alpha[k] - z)**2 + beta[k]**2
@@ -240,6 +241,81 @@ def _jacobian(z, Y, alpha, beta, B, C, gamma, b, c):
 	return Jalpha, Jbeta, JB, JC, Jgamma, Jb, Jc
 
 
+
+def _coordinate_tangent_residual(zs, ys, alpha, beta, B, C, gamma, b, c):
+
+	p,m = _get_dimensions(zs)
+	res = []
+	for i, j in product(range(p), range(m)):
+		z = np.array(zs[i,j])
+		y = np.array(ys[i,j]).reshape(-1,1,1)
+		Bij = B[:,j].reshape(-1,1)
+		Cij = C[i,:].reshape(1,-1)
+		bij = b[:,j].reshape(-1,1)
+		cij = c[i,:].reshape(1,-1)
+		res.append(
+			_residual(z, y, 
+				alpha, beta, Bij, Cij, 
+				gamma, bij, cij).flatten()
+		)
+
+	return np.hstack(res)
+
+	
+def _coordinate_tangent_jacobian(zs, ys, alpha, beta, B, C, gamma, b, c):
+	p, m = _get_dimensions(zs)
+
+	Jalphas = []
+	Jbetas = []
+	JBs = []
+	JCs = []
+	Jgammas = []
+	Jbs = []
+	Jcs = []
+
+	for i, j in product(range(p), range(m)):
+		z = np.array(zs[i,j])
+		y = np.array(ys[i,j]).reshape(-1,1,1)
+		Bij = B[:,j].reshape(-1,1)
+		Cij = C[i,:].reshape(1,-1)
+		bij = b[:,j].reshape(-1,1)
+		cij = c[i,:].reshape(1,-1)
+		Jalpha, Jbeta, JB, JC, Jgamma, Jb, Jc = _jacobian(
+			z, y, alpha, beta, Bij, Cij, gamma, bij, cij)
+	
+		Jalphas.append(Jalpha.reshape(len(z), len(alpha)))
+		Jbetas.append(Jbeta.reshape(len(z), len(beta)))
+		
+		JB_ = np.zeros((len(z), *B.shape), dtype = complex)
+		JB_[:,:,j] = JB.reshape(len(z), 2*len(alpha)) 
+		JBs.append(JB_)
+	
+		JC_ = np.zeros((len(z), *C.shape), dtype = complex)
+		JC_[:,i,:] = JC.reshape(len(z), 2*len(alpha))
+		JCs.append(JC_)
+
+		Jgammas.append(Jgamma.reshape(len(z), len(gamma)))
+
+		Jb_ = np.zeros((len(z), *b.shape), dtype = complex) 
+		Jb_[:,:,j] = Jb.reshape(len(z), len(gamma))
+		Jbs.append(Jb_)
+		
+		Jc_ = np.zeros((len(z), *c.shape), dtype = complex) 
+		Jc_[:,i,:] = Jc.reshape(len(z), len(gamma))
+		Jcs.append(Jc_)
+	
+	Jalpha = np.vstack(Jalphas)
+	Jbeta = np.vstack(Jbetas)
+	JB = np.vstack(JBs)
+	JC = np.vstack(JCs)
+	Jgamma = np.vstack(Jgammas)
+	Jb = np.vstack(Jbs)
+	Jc = np.vstack(Jcs)
+
+	return Jalpha, Jbeta, JB, JC, Jgamma, Jb, Jc 
+	
+
+
 def _make_encoder(alpha, beta, B, C, gamma, b, c):
 	def encoder(alpha, beta, B, C, gamma, b, c):
 		return np.hstack([
@@ -291,6 +367,49 @@ def _make_jacobian(z, Y, alpha, beta, B, C, gamma, b, c, weight):
 		return np.vstack([J.real, J.imag])
 
 	return jacobian
+
+
+def _make_coordinate_residual(zs, ys, alpha, beta, B, C, gamma, b, c, weights):
+	decoder = _make_decoder(alpha, beta, B, C, gamma, b, c)
+	p, m = _get_dimensions(zs)
+
+	def residual(x):
+		res = _coordinate_tangent_residual(zs, ys, *decoder(x))
+		if weights is not None:
+			start = 0
+			for i, j in product(range(p), range(m)):
+				length = len(zs[i,j])
+				I = slice(start, start + length)
+				res[I] = weights[i,j] @ res[I]
+				start += length
+			
+		return np.hstack([res.real.flatten(), res.imag.flatten()])
+
+	return residual
+
+
+def _make_coordinate_jacobian(zs, ys, alpha, beta, B, C, gamma, b, c, weights):
+	decoder = _make_decoder(alpha, beta, B, C, gamma, b, c)
+	p, m = _get_dimensions(zs)
+
+	def jacobian(x):
+		Jacs = _coordinate_tangent_jacobian(zs, ys, *decoder(x))
+		if weights is not None:
+			start = 0
+			for i, j in product(range(p), range(m)):
+				length = len(zs[i,j])
+				I = slice(start, start + length)
+				for k, J in enumerate(Jacs):
+					for idx in np.ndindex(J.shape[1:]):
+						Jacs[k][(I,*idx)] = weights[i,j] @ J[(I, *idx)] 
+				
+				start += length
+
+		J = np.hstack([J.reshape(J.shape[0], -1) for J in Jacs])
+		return np.vstack([J.real, J.imag])
+
+	return jacobian 
+
 
 # TODO: For SIMO/MISO we can use VarPro + rational approximation parameterization
 
