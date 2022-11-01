@@ -292,6 +292,8 @@ def test_coordinate(p = 3, m = 2, M = 1000, r_c = 2, r_r = 3):
 			print(err)
 			assert np.allclose(Jest, J[:,k])
 	
+	H = fit_coordinate_real_mimo_statespace_system(zs, ys, alpha, beta, B, C, gamma, b, c, 
+		weights = weights, stable = True, verbose = True)
 
 
 if __name__ == '__main__':
