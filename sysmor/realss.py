@@ -242,77 +242,6 @@ def _jacobian(z, Y, alpha, beta, B, C, gamma, b, c):
 
 
 
-def _coordinate_tangent_residual(zs, ys, alpha, beta, B, C, gamma, b, c):
-
-	p,m = _get_dimensions(zs)
-	res = []
-	for i, j in product(range(p), range(m)):
-		z = np.array(zs[i,j])
-		y = np.array(ys[i,j]).reshape(-1,1,1)
-		Bij = B[:,j].reshape(-1,1)
-		Cij = C[i,:].reshape(1,-1)
-		bij = b[:,j].reshape(-1,1)
-		cij = c[i,:].reshape(1,-1)
-		res.append(
-			_residual(z, y, 
-				alpha, beta, Bij, Cij, 
-				gamma, bij, cij).flatten()
-		)
-
-	return np.hstack(res)
-
-	
-def _coordinate_tangent_jacobian(zs, ys, alpha, beta, B, C, gamma, b, c):
-	p, m = _get_dimensions(zs)
-
-	Jalphas = []
-	Jbetas = []
-	JBs = []
-	JCs = []
-	Jgammas = []
-	Jbs = []
-	Jcs = []
-
-	for i, j in product(range(p), range(m)):
-		z = np.array(zs[i,j])
-		y = np.array(ys[i,j]).reshape(-1,1,1)
-		Bij = B[:,j].reshape(-1,1)
-		Cij = C[i,:].reshape(1,-1)
-		bij = b[:,j].reshape(-1,1)
-		cij = c[i,:].reshape(1,-1)
-		Jalpha, Jbeta, JB, JC, Jgamma, Jb, Jc = _jacobian(
-			z, y, alpha, beta, Bij, Cij, gamma, bij, cij)
-	
-		Jalphas.append(Jalpha.reshape(len(z), len(alpha)))
-		Jbetas.append(Jbeta.reshape(len(z), len(beta)))
-		
-		JB_ = np.zeros((len(z), *B.shape), dtype = complex)
-		JB_[:,:,j] = JB.reshape(len(z), 2*len(alpha)) 
-		JBs.append(JB_)
-	
-		JC_ = np.zeros((len(z), *C.shape), dtype = complex)
-		JC_[:,i,:] = JC.reshape(len(z), 2*len(alpha))
-		JCs.append(JC_)
-
-		Jgammas.append(Jgamma.reshape(len(z), len(gamma)))
-
-		Jb_ = np.zeros((len(z), *b.shape), dtype = complex) 
-		Jb_[:,:,j] = Jb.reshape(len(z), len(gamma))
-		Jbs.append(Jb_)
-		
-		Jc_ = np.zeros((len(z), *c.shape), dtype = complex) 
-		Jc_[:,i,:] = Jc.reshape(len(z), len(gamma))
-		Jcs.append(Jc_)
-	
-	Jalpha = np.vstack(Jalphas)
-	Jbeta = np.vstack(Jbetas)
-	JB = np.vstack(JBs)
-	JC = np.vstack(JCs)
-	Jgamma = np.vstack(Jgammas)
-	Jb = np.vstack(Jbs)
-	Jc = np.vstack(Jcs)
-
-	return Jalpha, Jbeta, JB, JC, Jgamma, Jb, Jc 
 	
 
 
@@ -353,62 +282,6 @@ def _make_residual(z, Y, alpha, beta, B, C, gamma, b, c, weight):
 
 	return residual
 
-def _make_jacobian(z, Y, alpha, beta, B, C, gamma, b, c, weight):
-	decoder = _make_decoder(alpha, beta, B, C, gamma, b, c)
-	M, p, m = Y.shape
-	def jacobian(x):
-		Jacs= _jacobian(z, Y, *decoder(x))
-		if weight is not None:
-			for k, J in enumerate(Jacs):
-				for idx in np.ndindex(J.shape[3:]):
-					for s, t in product(range(p), range(m)):
-						Jacs[k][(slice(M),s,t,*idx)] = weight @ J[(slice(M),s,t,*idx)] 
-		J = np.hstack([	J.reshape(M*p*m,-1) for J in Jacs])
-		return np.vstack([J.real, J.imag])
-
-	return jacobian
-
-
-def _make_coordinate_residual(zs, ys, alpha, beta, B, C, gamma, b, c, weights):
-	decoder = _make_decoder(alpha, beta, B, C, gamma, b, c)
-	p, m = _get_dimensions(zs)
-
-	def residual(x):
-		res = _coordinate_tangent_residual(zs, ys, *decoder(x))
-		if weights is not None:
-			start = 0
-			for i, j in product(range(p), range(m)):
-				length = len(zs[i,j])
-				I = slice(start, start + length)
-				res[I] = weights[i,j] @ res[I]
-				start += length
-			
-		return np.hstack([res.real.flatten(), res.imag.flatten()])
-
-	return residual
-
-
-def _make_coordinate_jacobian(zs, ys, alpha, beta, B, C, gamma, b, c, weights):
-	decoder = _make_decoder(alpha, beta, B, C, gamma, b, c)
-	p, m = _get_dimensions(zs)
-
-	def jacobian(x):
-		Jacs = _coordinate_tangent_jacobian(zs, ys, *decoder(x))
-		if weights is not None:
-			start = 0
-			for i, j in product(range(p), range(m)):
-				length = len(zs[i,j])
-				I = slice(start, start + length)
-				for k, J in enumerate(Jacs):
-					for idx in np.ndindex(J.shape[1:]):
-						Jacs[k][(I,*idx)] = weights[i,j] @ J[(I, *idx)] 
-				
-				start += length
-
-		J = np.hstack([J.reshape(J.shape[0], -1) for J in Jacs])
-		return np.vstack([J.real, J.imag])
-
-	return jacobian 
 
 
 # TODO: For SIMO/MISO we can use VarPro + rational approximation parameterization
@@ -517,3 +390,186 @@ class BlockStateSpaceSystem(StateSpaceSystem):
 		C[:,:2*len(self._alpha)] = self._C
 		C[:,2*len(self._alpha):] = self._c
 		return C
+
+
+
+###############################################################################
+# Coordinate based code
+###############################################################################
+
+
+def _coordinate_tangent_residual(zs, ys, alpha, beta, B, C, gamma, b, c):
+
+	p,m = _get_dimensions(zs)
+	res = []
+	for i, j in product(range(p), range(m)):
+		z = np.array(zs[i,j])
+		y = np.array(ys[i,j]).reshape(-1,1,1)
+		Bij = B[:,j].reshape(-1,1)
+		Cij = C[i,:].reshape(1,-1)
+		bij = b[:,j].reshape(-1,1)
+		cij = c[i,:].reshape(1,-1)
+		res.append(
+			_residual(z, y, 
+				alpha, beta, Bij, Cij, 
+				gamma, bij, cij).flatten()
+		)
+
+	return np.hstack(res)
+
+	
+def _coordinate_tangent_jacobian(zs, ys, alpha, beta, B, C, gamma, b, c):
+	p, m = _get_dimensions(zs)
+
+	Jalphas = []
+	Jbetas = []
+	JBs = []
+	JCs = []
+	Jgammas = []
+	Jbs = []
+	Jcs = []
+
+	for i, j in product(range(p), range(m)):
+		z = np.array(zs[i,j])
+		y = np.array(ys[i,j]).reshape(-1,1,1)
+		Bij = B[:,j].reshape(-1,1)
+		Cij = C[i,:].reshape(1,-1)
+		bij = b[:,j].reshape(-1,1)
+		cij = c[i,:].reshape(1,-1)
+		Jalpha, Jbeta, JB, JC, Jgamma, Jb, Jc = _jacobian(
+			z, y, alpha, beta, Bij, Cij, gamma, bij, cij)
+	
+		Jalphas.append(Jalpha.reshape(len(z), len(alpha)))
+		Jbetas.append(Jbeta.reshape(len(z), len(beta)))
+		
+		JB_ = np.zeros((len(z), *B.shape), dtype = complex)
+		JB_[:,:,j] = JB.reshape(len(z), 2*len(alpha)) 
+		JBs.append(JB_)
+	
+		JC_ = np.zeros((len(z), *C.shape), dtype = complex)
+		JC_[:,i,:] = JC.reshape(len(z), 2*len(alpha))
+		JCs.append(JC_)
+
+		Jgammas.append(Jgamma.reshape(len(z), len(gamma)))
+
+		Jb_ = np.zeros((len(z), *b.shape), dtype = complex) 
+		Jb_[:,:,j] = Jb.reshape(len(z), len(gamma))
+		Jbs.append(Jb_)
+		
+		Jc_ = np.zeros((len(z), *c.shape), dtype = complex) 
+		Jc_[:,i,:] = Jc.reshape(len(z), len(gamma))
+		Jcs.append(Jc_)
+	
+	Jalpha = np.vstack(Jalphas)
+	Jbeta = np.vstack(Jbetas)
+	JB = np.vstack(JBs)
+	JC = np.vstack(JCs)
+	Jgamma = np.vstack(Jgammas)
+	Jb = np.vstack(Jbs)
+	Jc = np.vstack(Jcs)
+
+	return Jalpha, Jbeta, JB, JC, Jgamma, Jb, Jc 
+
+
+def _make_jacobian(z, Y, alpha, beta, B, C, gamma, b, c, weight):
+	decoder = _make_decoder(alpha, beta, B, C, gamma, b, c)
+	M, p, m = Y.shape
+	def jacobian(x):
+		Jacs= _jacobian(z, Y, *decoder(x))
+		if weight is not None:
+			for k, J in enumerate(Jacs):
+				for idx in np.ndindex(J.shape[3:]):
+					for s, t in product(range(p), range(m)):
+						Jacs[k][(slice(M),s,t,*idx)] = weight @ J[(slice(M),s,t,*idx)] 
+		J = np.hstack([	J.reshape(M*p*m,-1) for J in Jacs])
+		return np.vstack([J.real, J.imag])
+
+	return jacobian
+
+
+def _make_coordinate_residual(zs, ys, alpha, beta, B, C, gamma, b, c, weights):
+	decoder = _make_decoder(alpha, beta, B, C, gamma, b, c)
+	p, m = _get_dimensions(zs)
+
+	def residual(x):
+		res = _coordinate_tangent_residual(zs, ys, *decoder(x))
+		if weights is not None:
+			start = 0
+			for i, j in product(range(p), range(m)):
+				length = len(zs[i,j])
+				I = slice(start, start + length)
+				res[I] = weights[i,j] @ res[I]
+				start += length
+			
+		return np.hstack([res.real.flatten(), res.imag.flatten()])
+
+	return residual
+
+
+def _make_coordinate_jacobian(zs, ys, alpha, beta, B, C, gamma, b, c, weights):
+	decoder = _make_decoder(alpha, beta, B, C, gamma, b, c)
+	p, m = _get_dimensions(zs)
+
+	def jacobian(x):
+		Jacs = _coordinate_tangent_jacobian(zs, ys, *decoder(x))
+		if weights is not None:
+			start = 0
+			for i, j in product(range(p), range(m)):
+				length = len(zs[i,j])
+				I = slice(start, start + length)
+				for k, J in enumerate(Jacs):
+					for idx in np.ndindex(J.shape[1:]):
+						Jacs[k][(I,*idx)] = weights[i,j] @ J[(I, *idx)] 
+				
+				start += length
+
+		J = np.hstack([J.reshape(J.shape[0], -1) for J in Jacs])
+		return np.vstack([J.real, J.imag])
+
+	return jacobian 
+
+
+def fit_coordinate_real_mimo_statespace_system(zs, ys, alpha, beta, B, C, gamma, b, c, weights = None, stable = True, verbose = True):
+	encode = _make_encoder(alpha, beta, B, C, gamma, b, c)
+	decode = _make_decoder(alpha, beta, B, C, gamma, b, c)
+	residual = _make_coordinate_residual(zs, ys, alpha, beta, B, C, gamma, b, c, weights)
+	jacobian = _make_coordinate_jacobian(zs, ys, alpha, beta, B, C, gamma, b, c, weights)
+
+
+	if stable:
+		bounds = (
+			-np.inf, 
+			encode(
+				np.zeros_like(alpha),
+				# Although technically we can impose beta[k]<= 0 wlog, we don't for ease of optimization
+				np.inf*np.ones_like(beta), 
+				np.inf*np.ones_like(B),
+				np.inf*np.ones_like(C),
+				np.zeros_like(gamma),
+				np.inf*np.ones_like(b),
+				np.inf*np.ones_like(c)
+				)
+			)
+		# Flip to make stable
+		alpha = -1*np.abs(alpha)
+		gamma = -1*np.abs(gamma)
+	else:
+		bounds = (-np.inf, np.inf)
+	
+	x0 = encode(alpha, beta, B, C, gamma, b, c)
+
+	if verbose:
+		verbose = 2
+	else:
+		verbose = 0
+	
+	res = scipy.optimize.least_squares(
+		residual, 
+		x0,
+		jac = jacobian,
+		bounds = bounds,
+		verbose = verbose,
+		)
+
+	return BlockStateSpaceSystem(*decode(res.x))	
+
